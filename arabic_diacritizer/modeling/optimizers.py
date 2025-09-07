@@ -1,5 +1,5 @@
-from typing import Optional
 import torch
+from typing import Optional
 
 OPTIMIZER_REGISTRY = {}
 SCHEDULER_REGISTRY = {}
