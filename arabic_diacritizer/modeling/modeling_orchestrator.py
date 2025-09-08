@@ -35,9 +35,17 @@ class ModelingOrchestrator(L.LightningModule):
 
     def _compute_metrics(self, logits, labels):
         """Return dict of computed metrics."""
+
+        # Reshape the predictions and labels to be compatible with torchmetrics.
+        # From (batch, seq_len, num_classes) -> (batch * seq_len, num_classes)
+        # From (batch, seq_len) -> (batch * seq_len)
+        preds_reshaped = logits.view(-1, logits.size(-1))
+        labels_reshaped = labels.view(-1)
+
         out = {}
         for name, metric in self.metrics.items():
-            out[name] = metric(logits, labels)
+            # Pass the correctly shaped tensors to the metric
+            out[name] = metric(preds_reshaped, labels_reshaped)
         return out
 
     def _log_metrics(self, metrics: dict, stage: str, loss=None):
