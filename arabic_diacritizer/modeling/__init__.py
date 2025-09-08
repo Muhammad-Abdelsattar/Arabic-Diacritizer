@@ -5,5 +5,11 @@ from .optimizers import get_optimizer
 from .model_factory import build_model
 
 
-__all__ = ["ModelingOrchestrator", "BiLSTMDiacritizer", "get_loss", "get_optimizer", "build_model"]
+__all__ = [
+    "ModelingOrchestrator",
+    "BiLSTMDiacritizer",
+    "get_loss",
+    "get_optimizer",
+    "build_model",
+]
 
