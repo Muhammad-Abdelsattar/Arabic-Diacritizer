@@ -77,6 +77,9 @@ def build_modeling_orchestrator(
         optimizer_cfg=modeling_config["optimizer"],
         scheduler_cfg=modeling_config.get("scheduler"),
     )
+
+    lightning_module.tokenizer = tokenizer
+
     _LOGGER.info("ModelingOrchestrator built successfully.")
 
     return lightning_module

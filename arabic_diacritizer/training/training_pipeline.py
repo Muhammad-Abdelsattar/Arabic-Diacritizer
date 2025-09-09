@@ -42,11 +42,8 @@ class TrainingPipeline:
         lightning_module = builder.build_modeling_orchestrator(
             modeling_config=self.config["modeling_config"], datamodule=datamodule
         )
-        lightning_module.tokenizer = datamodule.tokenizer
-        _LOGGER.info("Tokenizer has been attached to the LightningModule to be saved in the checkpoint.")
 
-
-        #Build the Trainer
+        # Build the Trainer
         trainer = builder.build_trainer(self.config["trainer"])
 
         # Start training

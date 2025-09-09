@@ -4,66 +4,55 @@ from pathlib import Path
 
 import torch
 from .modeling import ModelingOrchestrator
+from .data import CharTokenizer
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Exporter:
     """
-    Handles the conversion of a self-contained PyTorch Lightning checkpoint
-    into a deployment-ready ONNX bundle.
+    Handles the conversion of a pre-built LightningModule into a
+    deployment-ready ONNX bundle.
     """
 
-    def export(self, ckpt_path: str, output_dir: str):
+    def export(self, lightning_module: ModelingOrchestrator, output_dir: str):
         """
-        Exports the model to ONNX format and saves all necessary artifacts.
+        Exports the given model and its tokenizer to an ONNX bundle.
 
         Args:
-            ckpt_path: Path to the .ckpt file of the trained model.
+            lightning_module: The fully instantiated and trained ModelingOrchestrator object.
             output_dir: Path to the directory where the exported bundle will be saved.
         """
-        _LOGGER.info(
-            f"Starting model export from self-contained checkpoint: {ckpt_path}"
-        )
+        _LOGGER.info(f"Starting export process for the provided LightningModule.")
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        # Load the LightningModule
-        _LOGGER.info("Loading model and artifacts from checkpoint...")
-        lightning_module = ModelingOrchestrator.load_from_checkpoint(
-            ckpt_path, map_location="cpu"
-        )
-
-        # Extract all required artifacts directly from the loaded module
+        # 1. Extract artifacts directly from the provided module
         core_model = lightning_module.model
         core_model.eval()
 
-        # Retrieve tokenizer and max_length from the checkpoint
         tokenizer = getattr(lightning_module, "tokenizer", None)
-
-        if tokenizer is None:
-            raise RuntimeError(
-                "Could not find a 'tokenizer' attached to the LightningModule. Please retrain and save the checkpoint."
+        if not isinstance(tokenizer, CharTokenizer):
+            raise AttributeError(
+                "The provided LightningModule does not have a valid 'tokenizer' attribute. "
+                "Ensure the tokenizer is attached before training."
             )
+        _LOGGER.info("Successfully extracted model and tokenizer from the module.")
 
-        # Export the core model to ONNX with dynamic axes
-        self._export_core_model_to_onnx(core_model, max_length, output_path)
+        # 2. Export the core model to ONNX with dynamic axes
+        self._export_core_model_to_onnx(core_model, output_path)
 
-        # Save tokenizer vocabularies
+        # 3. Save the tokenizer vocabulary
         self._save_vocabularies(tokenizer, output_path)
 
+        _LOGGER.info(f"> Export successful. Bundle saved to: {output_path.resolve()}")
 
-        _LOGGER.info(f"✅ Export successful. Bundle saved to: {output_path.resolve()}")
-
-    def _export_core_model_to_onnx(
-        self, model: torch.nn.Module, max_length: int, output_path: Path
-    ):
+    def _export_core_model_to_onnx(self, model: torch.nn.Module, output_path: Path):
+        """Exports the nn.Module to a fully dynamic ONNX model."""
         onnx_path = output_path / "model.onnx"
-        dummy_input = torch.randint(
-            low=0, high=100, size=(1, max_length), dtype=torch.long
-        )
+        dummy_input = torch.randint(low=0, high=100, size=(1, 10), dtype=torch.long)
 
-        _LOGGER.info(f"Exporting model to ONNX format at {onnx_path}...")
+        _LOGGER.info(f"> Exporting model to ONNX format at {onnx_path}...")
         torch.onnx.export(
             model,
             dummy_input,
@@ -77,9 +66,10 @@ class Exporter:
             },
             opset_version=12,
         )
-        _LOGGER.info("ONNX export completed.")
+        _LOGGER.info("ONNX export completed with dynamic axes.")
 
-    def _save_vocabularies(self, tokenizer, output_path: Path):
+    def _save_vocabularies(self, tokenizer: CharTokenizer, output_path: Path):
+        """Saves character-to-ID and ID-to-diacritic mappings."""
         vocab_data = {
             "char2id": tokenizer.char2id,
             "id2diacritic": tokenizer.id2diacritic,
