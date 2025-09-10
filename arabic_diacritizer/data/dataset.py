@@ -87,9 +87,6 @@ class DiacritizationDataset(Dataset):
             f"Dataset initialized with {self.size} samples (cache_format={self.cache_format})."
         )
 
-    # ------------------------------
-    # Initialization subroutines
-    # ------------------------------
     def _init_pickle_cache(self, cache_file: Path, preload: bool):
         if cache_file.exists():
             with open(cache_file, "rb") as f:
@@ -109,7 +106,14 @@ class DiacritizationDataset(Dataset):
             _LOGGER.info("Dataset cached with pickle; data fully in RAM by default.")
 
     def _init_npz_cache(self, inputs_file: Path, labels_file: Path):
-        max_len = self.max_length or max(len(line) for line in self.lines)  # fallback
+        if self.max_length is None:
+            raise ValueError(
+                "The `max_length` parameter must be specified in the data configuration "
+                "when using the 'npz' cache format. This prevents a costly pre-scan "
+                "of the entire dataset."
+            )
+        max_len = self.max_length
+
         if inputs_file.exists() and labels_file.exists():
             _LOGGER.info("Loading existing NPZ cache with memmap...")
             self._inputs_npz = np.memmap(
@@ -157,8 +161,25 @@ class DiacritizationDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[List[int], List[int]]:
         if self.cache_format == "pickle" and self._data is not None:
             return self._data[idx]
-        elif self.cache_format == "npz" and self._inputs_npz is not None:
-            return (self._inputs_npz[idx].tolist(), self._labels_npz[idx].tolist())
+        elif (
+            self.cache_format == "npz"
+            and self._inputs_npz is not None
+            and self._labels_npz is not None
+        ):
+            # Here we need to trim the padding that was added for the npz file
+            # This logic assumes padding value is 0, which is standard
+            inputs = self._inputs_npz[idx]
+            labels = self._labels_npz[idx]
+
+            # Find the first occurrence of padding (0)
+            # This is a fast numpy operation
+            first_pad_index = np.where(inputs == 0)[0]
+            if len(first_pad_index) > 0:
+                true_length = first_pad_index[0]
+                return inputs[:true_length].tolist(), labels[:true_length].tolist()
+            else:
+                return inputs.tolist(), labels.tolist()
+
         elif self._data is not None:  # preload with no cache
             return self._data[idx]
         else:

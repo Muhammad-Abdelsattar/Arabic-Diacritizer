@@ -1,14 +1,28 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 import torch.nn as nn
-
-from .architectures.bilstm import BiLSTMDiacritizer
 
 _LOGGER = logging.getLogger(__name__)
 
-SUPPORTED_MODELS = {
-    "bilstm": BiLSTMDiacritizer,
-}
+# Create a registry (a simple dictionary) to hold model builders
+MODEL_REGISTRY: Dict[str, Callable[..., nn.Module]] = {}
+
+
+def register_model(name: str):
+    """
+    A decorator to register a new model architecture in the MODEL_REGISTRY.
+
+    Args:
+        name (str): The name to associate with the model class.
+    """
+
+    def wrapper(cls):
+        if name in MODEL_REGISTRY:
+            _LOGGER.warning(f"Model '{name}' is already registered. Overwriting.")
+        MODEL_REGISTRY[name] = cls
+        return cls
+
+    return wrapper
 
 
 def build_model(
@@ -18,7 +32,7 @@ def build_model(
     pad_idx: int,
 ) -> nn.Module:
     """
-    Builds a neural network model from a configuration.
+    Builds a neural network model from a configuration using the registry.
 
     This factory function selects a model architecture based on the 'name' key
     in the configuration and initializes it with the provided parameters.
@@ -42,13 +56,14 @@ def build_model(
     if not model_name:
         raise ValueError("Model configuration must include a 'name' key.")
 
-    if model_name not in SUPPORTED_MODELS:
+    # Look up the model class in the registry instead of a hardcoded dict.
+    if model_name not in MODEL_REGISTRY:
         raise ValueError(
             f"Unknown model name '{model_name}'. "
-            f"Supported models are: {list(SUPPORTED_MODELS.keys())}"
+            f"Supported models are: {list(MODEL_REGISTRY.keys())}"
         )
 
-    model_class = SUPPORTED_MODELS[model_name]
+    model_class = MODEL_REGISTRY[model_name]
     _LOGGER.info(f"Building '{model_name}' model architecture...")
 
     # Pass both static (from config) and dynamic (from data) parameters

@@ -1,11 +1,15 @@
 import torch
 import torch.nn as nn
 
+from ..model_factory import register_model
 
+
+# apply the decorator to register this class under the name "bilstm"
+@register_model("bilstm")
 class BiLSTMDiacritizer(nn.Module):
     """
     BiLSTM architecture for character-level Arabic diacritization.
-    
+
     - Input: character IDs (LongTensor, shape: [batch, seq_len])
     - Output: logits for diacritic classes (FloatTensor, shape: [batch, seq_len, num_classes])
     """
@@ -24,9 +28,7 @@ class BiLSTMDiacritizer(nn.Module):
 
         # Embedding for characters
         self.embedding = nn.Embedding(
-            num_embeddings=vocab_size,
-            embedding_dim=embedding_dim,
-            padding_idx=pad_idx
+            num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=pad_idx
         )
 
         # BiLSTM Encoder
@@ -36,7 +38,7 @@ class BiLSTMDiacritizer(nn.Module):
             num_layers=num_layers,
             dropout=dropout if num_layers > 1 else 0.0,
             bidirectional=True,
-            batch_first=True
+            batch_first=True,
         )
 
         # Dropout on LSTM outputs
@@ -50,7 +52,7 @@ class BiLSTMDiacritizer(nn.Module):
         Args:
             x: LongTensor (batch_size, seq_len) - character IDs
             lengths: Optional LongTensor (batch_size,) - actual sequence lengths
-            
+
         Returns:
             logits: FloatTensor (batch_size, seq_len, num_classes)
         """
@@ -66,9 +68,7 @@ class BiLSTMDiacritizer(nn.Module):
                 embedded, lengths_sorted.cpu(), batch_first=True, enforce_sorted=True
             )
             packed_out, _ = self.bilstm(packed)
-            lstm_out, _ = nn.utils.rnn.pad_packed_sequence(
-                packed_out, batch_first=True
-            )
+            lstm_out, _ = nn.utils.rnn.pad_packed_sequence(packed_out, batch_first=True)
 
             # Restore to original order
             _, idx_unsort = torch.sort(idx_sort)
