@@ -1,0 +1,71 @@
+seed: 42
+
+data:
+  train_files: ["data/processed/cleaned.txt"]
+  val_files: null
+  test_files: null
+  batch_size: 1024
+  num_workers: 4
+  cache_dir: ".cache/"
+  cache_format: "npz"
+  max_length: 1024
+  val_split: 0.1
+  test_split: 0.1
+
+# Modeling Configuration
+modeling_config:
+  architecture:
+    # name: "bilstm"
+    # embedding_dim: 128
+    # hidden_dim: 256
+    # num_layers: 2
+    # dropout: 0.3
+    name: "transformer_encoder"
+    d_model: 128
+    nhead: 4
+    num_encoder_layers: 3
+    dim_feedforward: 512
+
+  loss:
+    name: "cross_entropy"
+    label_smoothing: 0.1
+
+  optimizer:
+    name: "adamw"
+    lr: 0.001
+    weight_decay: 0.01
+
+  scheduler: null # Optional, e.g., {name: "cosine", t_max: 50}
+
+trainer:
+  max_epochs: 10
+  accelerator: "auto"
+  devices: 1
+  precision: "16-mixed"
+  log_every_n_steps: 100
+  
+  # loggers:
+  #   - name: "tensorboard"
+  #     save_dir: "lightning_logs/"
+    # - name: "wandb"
+    #   project: "arabic-diacritizer"
+    #   name: ${oc.env:RUN_NAME, null} # Example of using env var
+
+  callbacks:
+    - name: "model_checkpoint"
+      monitor: "val_loss"
+      mode: "min"
+      save_top_k: 1
+      filename: "best_model"
+    - name: "early_stopping"
+      monitor: "val_loss"
+      mode: "min"
+      patience: 3
+    # - name: "lr_monitor"
+    #   logging_interval: "step"
+
+export:
+  output_dir: "artifacts/"
+  dummy_input_length: 50
+  onnx_opset_version: 15
+  use_torch_dynamo: false
