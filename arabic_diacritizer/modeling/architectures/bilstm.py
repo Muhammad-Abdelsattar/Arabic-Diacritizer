@@ -4,7 +4,6 @@ import torch.nn as nn
 from ..model_factory import register_model
 
 
-# apply the decorator to register this class under the name "bilstm"
 @register_model("bilstm")
 class BiLSTMDiacritizer(nn.Module):
     """

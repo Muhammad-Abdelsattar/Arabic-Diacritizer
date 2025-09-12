@@ -39,8 +39,8 @@ class ModelingOrchestrator(L.LightningModule):
         # Reshape the predictions and labels to be compatible with torchmetrics.
         # From (batch, seq_len, num_classes) -> (batch * seq_len, num_classes)
         # From (batch, seq_len) -> (batch * seq_len)
-        preds_reshaped = logits.view(-1, logits.size(-1))
-        labels_reshaped = labels.view(-1)
+        preds_reshaped = logits.view(-1, logits.size(-1)).to(device="cpu")
+        labels_reshaped = labels.view(-1).to(device="cpu")
 
         out = {}
         for name, metric in self.metrics.items():
