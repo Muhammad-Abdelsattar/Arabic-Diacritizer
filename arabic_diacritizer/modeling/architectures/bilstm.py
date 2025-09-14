@@ -22,6 +22,7 @@ class BiLSTMDiacritizer(nn.Module):
         num_layers: int = 2,
         dropout: float = 0.3,
         pad_idx: int = 0,
+        **kwargs
     ):
         super().__init__()
 

@@ -1,12 +1,14 @@
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, Subset
 import lightning as L
+import numpy as np  # Import numpy
 
 from .dataset import CharTokenizer, DiacritizationDataset
 
+# Logger setup (remains the same)
 _LOGGER = logging.getLogger("arabic_diacritizer.data_manager")
 _LOGGER.setLevel(logging.INFO)
 if not _LOGGER.handlers:
@@ -19,11 +21,7 @@ if not _LOGGER.handlers:
 
 
 class DataManager(L.LightningDataModule):
-    """
-    Lightning DataModule to orchestrate datasets and loaders for Arabic Diacritization.
-    Handles smart splitting behavior depending on provided files.
-    """
-
+    # __init__ method remains the same
     def __init__(
         self,
         train_files: Union[str, List[str]],
@@ -65,21 +63,36 @@ class DataManager(L.LightningDataModule):
         self.val_dataset = None
         self.test_dataset = None
 
-    def collate_fn(self, batch):
-        pad_idx = self.tokenizer.char2id["<PAD>"]
-        input_seqs, label_seqs = zip(*batch)
-        lengths = [len(seq) for seq in input_seqs]
-        max_len = max(lengths)
+    def collate_fn(self, batch: List[Tuple[np.ndarray, np.ndarray, int]]):
+        """
+        Optimized collate_fn that leverages pre-padding and dynamic batch sizing.
+        """
+        # Batch is a list of (padded_input_np, padded_label_np, length) tuples
+        inputs_list, labels_list, lengths = zip(*batch)
 
-        padded_inputs = [inp + [pad_idx] * (max_len - len(inp)) for inp in input_seqs]
-        padded_labels = [lab + [pad_idx] * (max_len - len(lab)) for lab in label_seqs]
+        # Find the max sequence length *within the current batch*
+        max_len_in_batch = max(lengths)
 
-        return (
-            torch.tensor(padded_inputs, dtype=torch.long),
-            torch.tensor(padded_labels, dtype=torch.long),
-            torch.tensor(lengths, dtype=torch.long),
-        )
+        # Stack the numpy arrays into a single batch array
+        # The arrays are already padded to max_length from the dataset
+        inputs_np = np.stack(inputs_list, axis=0)
+        labels_np = np.stack(labels_list, axis=0)
 
+        # Slice the batch down to the max length found in this batch.
+        # This is the crucial step that prevents sending unnecessary padding to the GPU.
+        inputs_sliced = inputs_np[:, :max_len_in_batch]
+        labels_sliced = labels_np[:, :max_len_in_batch]
+
+        # Convert the sliced numpy arrays to PyTorch tensors.
+        # torch.from_numpy is very fast as it avoids a data copy.
+        inputs_tensor = torch.from_numpy(inputs_sliced).long()
+        labels_tensor = torch.from_numpy(labels_sliced).long()
+        lengths_tensor = torch.tensor(lengths, dtype=torch.long)
+
+        return inputs_tensor, labels_tensor, lengths_tensor
+
+    # The rest of the DataManager class (setup, train_dataloader, etc.) remains the same.
+    # ...
     def setup(self, stage: Optional[str] = None):
         _LOGGER.info(f"Setting up DataManager (stage={stage})")
 
@@ -91,6 +104,22 @@ class DataManager(L.LightningDataModule):
                 cache_format=self.cache_format,
                 max_length=self.max_length,
             )
+            _LOGGER.info("Applying sortish bucketing to the training set...")
+
+            # This can be memory intensive for huge datasets, but is fine for millions of lines.
+            # It relies on our __getitem__ returning (data, labels, length).
+            original_indices = np.arange(len(base_train_ds))
+            lengths = [base_train_ds[i][2] for i in range(len(base_train_ds))]
+
+            # Create a new sorted list of indices
+            sorted_indices = [
+                idx
+                for _, idx in sorted(zip(lengths, original_indices), key=lambda x: x[0])
+            ]
+
+            # Wrap the original dataset in a Subset that uses the new sorted index order
+            base_train_ds = Subset(base_train_ds, sorted_indices)
+            _LOGGER.info("Sortish bucketing applied successfully.")
 
             # CASE 1: All three provided
             if self.val_files and self.test_files:
@@ -186,7 +215,8 @@ class DataManager(L.LightningDataModule):
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=False,
+            pin_memory=True,
             num_workers=self.num_workers,
             collate_fn=self.collate_fn,
         )
@@ -197,6 +227,7 @@ class DataManager(L.LightningDataModule):
                 self.val_dataset,
                 batch_size=self.batch_size,
                 shuffle=False,
+                pin_memory=True,
                 num_workers=self.num_workers,
                 collate_fn=self.collate_fn,
             )
@@ -207,6 +238,7 @@ class DataManager(L.LightningDataModule):
                 self.test_dataset,
                 batch_size=self.batch_size,
                 shuffle=False,
+                pin_memory=True,
                 num_workers=self.num_workers,
                 collate_fn=self.collate_fn,
             )

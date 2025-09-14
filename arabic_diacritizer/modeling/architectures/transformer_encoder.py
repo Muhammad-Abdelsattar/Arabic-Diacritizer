@@ -48,6 +48,7 @@ class TransformerEncoderDiacritizer(nn.Module):
         dim_feedforward: int = 1024,
         dropout: float = 0.2,
         pad_idx: int = 0,
+        **kwargs,
     ):
         super().__init__()
         self.pad_idx = pad_idx

@@ -8,7 +8,7 @@ import logging
 
 from .tokenizer import CharTokenizer
 
-# Logger setup
+# Logger setup (remains the same)
 _LOGGER = logging.getLogger("arabic_diacritizer.dataset")
 _LOGGER.setLevel(logging.INFO)
 if not _LOGGER.handlers:
@@ -51,7 +51,6 @@ class DiacritizationDataset(Dataset):
             if not path.exists():
                 raise FileNotFoundError(f"Dataset file not found: {path}")
 
-        # Load all lines
         self.lines: List[str] = []
         for path in self.file_paths:
             file_lines = path.read_text(encoding="utf-8").splitlines()
@@ -60,12 +59,11 @@ class DiacritizationDataset(Dataset):
 
         self.size = len(self.lines)
 
-        # Storage
         self._data = None
         self._inputs_npz = None
         self._labels_npz = None
+        self._lengths_npz = None # Added for lengths
 
-        # Initialize according to cache format
         if self.cache_dir and self.cache_format != "none":
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             stem_combo = "+".join(path.stem for path in self.file_paths)
@@ -77,7 +75,8 @@ class DiacritizationDataset(Dataset):
             elif self.cache_format == "npz":
                 inputs_file = self.cache_dir / f"{stem_combo}_inputs.npy"
                 labels_file = self.cache_dir / f"{stem_combo}_labels.npy"
-                self._init_npz_cache(inputs_file, labels_file)
+                lengths_file = self.cache_dir / f"{stem_combo}_lengths.npy" # New lengths file
+                self._init_npz_cache(inputs_file, labels_file, lengths_file)
 
         elif preload and self.cache_format == "none":
             _LOGGER.info("Preloading in memory without cache...")
@@ -88,6 +87,7 @@ class DiacritizationDataset(Dataset):
         )
 
     def _init_pickle_cache(self, cache_file: Path, preload: bool):
+        # This function remains the same as before
         if cache_file.exists():
             with open(cache_file, "rb") as f:
                 self._data = pickle.load(f)
@@ -102,19 +102,19 @@ class DiacritizationDataset(Dataset):
             _LOGGER.info(f"Saved pickle cache to {cache_file}")
 
         if not preload:
-            # Optional: keep only reference to lines if not preloading
             _LOGGER.info("Dataset cached with pickle; data fully in RAM by default.")
 
-    def _init_npz_cache(self, inputs_file: Path, labels_file: Path):
+    def _init_npz_cache(self, inputs_file: Path, labels_file: Path, lengths_file: Path):
+        """
+        Initializes the NPZ cache, now including a separate file for sequence lengths.
+        """
         if self.max_length is None:
             raise ValueError(
-                "The `max_length` parameter must be specified in the data configuration "
-                "when using the 'npz' cache format. This prevents a costly pre-scan "
-                "of the entire dataset."
+                "The `max_length` must be specified when using 'npz' cache format."
             )
         max_len = self.max_length
 
-        if inputs_file.exists() and labels_file.exists():
+        if inputs_file.exists() and labels_file.exists() and lengths_file.exists():
             _LOGGER.info("Loading existing NPZ cache with memmap...")
             self._inputs_npz = np.memmap(
                 inputs_file, dtype=np.int32, mode="r", shape=(self.size, max_len)
@@ -122,33 +122,51 @@ class DiacritizationDataset(Dataset):
             self._labels_npz = np.memmap(
                 labels_file, dtype=np.int32, mode="r", shape=(self.size, max_len)
             )
+            self._lengths_npz = np.memmap(
+                lengths_file, dtype=np.int32, mode="r", shape=(self.size,)
+            )
         else:
             _LOGGER.info("Encoding dataset for NPZ memmap caching...")
-            # Create memmap files
+            # Create memmap files in write mode
             self._inputs_npz = np.memmap(
                 inputs_file, dtype=np.int32, mode="w+", shape=(self.size, max_len)
             )
             self._labels_npz = np.memmap(
                 labels_file, dtype=np.int32, mode="w+", shape=(self.size, max_len)
             )
+            self._lengths_npz = np.memmap(
+                lengths_file, dtype=np.int32, mode="w+", shape=(self.size,)
+            )
+            
             for i, line in enumerate(self.lines):
                 input_ids, label_ids = self._encode_line(line)
                 L = min(len(input_ids), max_len)
+                
+                # Write data to the memmapped arrays
                 self._inputs_npz[i, :L] = input_ids[:L]
                 self._labels_npz[i, :L] = label_ids[:L]
+                self._lengths_npz[i] = L # <-- BEST PRACTICE: Save the true length
+
+                # Explicitly pad the rest of the sequence if necessary
                 if L < max_len:
                     self._inputs_npz[i, L:] = 0
                     self._labels_npz[i, L:] = 0
-            _LOGGER.info(f"Saved NPZ cache: {inputs_file}, {labels_file}")
-            # Reopen in readonly mode to avoid locks
+            
+            _LOGGER.info(f"Saved NPZ cache: {inputs_file}, {labels_file}, {lengths_file}")
+            
+            # Reopen in readonly mode
             self._inputs_npz = np.memmap(
                 inputs_file, dtype=np.int32, mode="r", shape=(self.size, max_len)
             )
             self._labels_npz = np.memmap(
                 labels_file, dtype=np.int32, mode="r", shape=(self.size, max_len)
             )
+            self._lengths_npz = np.memmap(
+                lengths_file, dtype=np.int32, mode="r", shape=(self.size,)
+            )
 
     def _encode_line(self, text: str) -> Tuple[List[int], List[int]]:
+        # This function remains the same as before
         input_ids, label_ids = self.tokenizer.encode(text)
         if self.max_length:
             input_ids = input_ids[: self.max_length]
@@ -158,29 +176,31 @@ class DiacritizationDataset(Dataset):
     def __len__(self):
         return self.size
 
-    def __getitem__(self, idx: int) -> Tuple[List[int], List[int]]:
-        if self.cache_format == "pickle" and self._data is not None:
-            return self._data[idx]
-        elif (
-            self.cache_format == "npz"
-            and self._inputs_npz is not None
-            and self._labels_npz is not None
-        ):
-            # Here we need to trim the padding that was added for the npz file
-            # This logic assumes padding value is 0, which is standard
+    def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray, int]:
+        """
+        Optimized __getitem__ to avoid any slow conversions.
+
+        Returns a tuple of:
+        - Padded input IDs (NumPy array)
+        - Padded label IDs (NumPy array)
+        - The true, unpadded length of the sequence (integer)
+        """
+        if self.cache_format == "npz" and self._inputs_npz is not None:
+            # OPTIMIZED: Direct read from memmap files. This is extremely fast.
             inputs = self._inputs_npz[idx]
             labels = self._labels_npz[idx]
+            length = self._lengths_npz[idx].item() # .item() gets the Python int
+            return inputs, labels, length
 
-            # Find the first occurrence of padding (0)
-            # This is a fast numpy operation
-            first_pad_index = np.where(inputs == 0)[0]
-            if len(first_pad_index) > 0:
-                true_length = first_pad_index[0]
-                return inputs[:true_length].tolist(), labels[:true_length].tolist()
-            else:
-                return inputs.tolist(), labels.tolist()
+        if self.cache_format == "pickle" and self._data is not None:
+            # Fallback for pickle cache
+            input_ids, label_ids = self._data[idx]
+            return np.array(input_ids), np.array(label_ids), len(input_ids)
 
-        elif self._data is not None:  # preload with no cache
-            return self._data[idx]
-        else:
-            return self._encode_line(self.lines[idx])
+        if self._data is not None:  # In-memory preload without cache
+            input_ids, label_ids = self._data[idx]
+            return np.array(input_ids), np.array(label_ids), len(input_ids)
+        
+        # SLOWEST PATH: On-the-fly tokenization (no cache used)
+        input_ids, label_ids = self._encode_line(self.lines[idx])
+        return np.array(input_ids), np.array(label_ids), len(input_ids)

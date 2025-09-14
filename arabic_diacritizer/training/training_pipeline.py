@@ -1,3 +1,4 @@
+import torch
 import logging
 from typing import Dict, Any
 
@@ -42,6 +43,14 @@ class TrainingPipeline:
         lightning_module = builder.build_modeling_orchestrator(
             modeling_config=self.config["modeling_config"], datamodule=datamodule
         )
+        # try:
+        #     # This line JIT-compiles the model for significant speedup on PyTorch 2.0+
+        #     lightning_module = torch.compile(lightning_module)
+        #     _LOGGER.info("Successfully compiled the model with torch.compile().")
+        # except Exception as e:
+        #     _LOGGER.warning(
+        #         f"Could not apply torch.compile(): {e}. Proceeding without it."
+        #     )
 
         # Build the Trainer
         trainer = builder.build_trainer(self.config["trainer"])
