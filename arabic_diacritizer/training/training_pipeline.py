@@ -1,6 +1,6 @@
 import torch
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import lightning as L
 from . import builder
@@ -13,58 +13,42 @@ logging.basicConfig(
 
 
 class TrainingPipeline:
-    """
-    Orchestrates the entire training, validation, and testing process.
-    """
-
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initializes the pipeline with a configuration dictionary.
-        """
         self.config = config
 
-    def run(self):
+    def run(
+        self,
+        ckpt_path: Optional[str] = None,
+        reset_optimizer_and_scheduler: bool = False,
+    ):
         """
-        Executes the main training and testing workflow.
+        Executes the training workflow. The config is assumed to be final.
         """
-        _LOGGER.info("Starting the training pipeline...")
+        if ckpt_path:
+            _LOGGER.info(f"Resuming training from checkpoint: {ckpt_path}")
+        else:
+            _LOGGER.info("Starting a new training run...")
 
-        # Set the global seed for reproducibility
         L.seed_everything(self.config.get("seed", 42), workers=True)
-
-        # Build the DataManager
         datamodule = builder.build_data_manager(self.config["data"])
-
-        # Set up the DataManager to initialize the tokenizer
-        _LOGGER.info("Setting up DataManager...")
         datamodule.setup(stage="fit")
 
-        # Build the ModelingOrchestrator
         lightning_module = builder.build_modeling_orchestrator(
-            modeling_config=self.config["modeling_config"], datamodule=datamodule
+            modeling_config=self.config["modeling_config"],
+            datamodule=datamodule,
+            reset_optimizer_and_scheduler=reset_optimizer_and_scheduler,
         )
-        # try:
-        #     # This line JIT-compiles the model for significant speedup on PyTorch 2.0+
-        #     lightning_module = torch.compile(lightning_module)
-        #     _LOGGER.info("Successfully compiled the model with torch.compile().")
-        # except Exception as e:
-        #     _LOGGER.warning(
-        #         f"Could not apply torch.compile(): {e}. Proceeding without it."
-        #     )
 
-        # Build the Trainer
+        # This ensures the checkpoint we save from this run can be resumed later.
+        lightning_module.hparams["config"] = self.config
+
         trainer = builder.build_trainer(self.config["trainer"])
 
-        # Start training
-        _LOGGER.info("Starting model training (trainer.fit)...")
-        trainer.fit(model=lightning_module, datamodule=datamodule)
-        _LOGGER.info("Model training finished.")
+        trainer.fit(model=lightning_module, datamodule=datamodule, ckpt_path=ckpt_path)
 
-        # Run final test
-        _LOGGER.info("Starting final model testing (trainer.test)...")
+        _LOGGER.info("Model training finished.")
         trainer.test(datamodule=datamodule, ckpt_path="best")
         _LOGGER.info("Model testing finished.")
-        _LOGGER.info("Training pipeline completed successfully.")
 
     def evaluate(self, ckpt_path: str):
         """

@@ -1,6 +1,8 @@
 import torch
 from typing import Optional
 
+from torch.optim.lr_scheduler import LambdaLR
+
 OPTIMIZER_REGISTRY = {}
 SCHEDULER_REGISTRY = {}
 
@@ -23,6 +25,26 @@ def register_scheduler(name):
         return fn
 
     return wrapper
+
+
+class _LinearWarmupDecay:
+    """
+    A callable class that implements the linear warmup, linear decay schedule.
+    This is picklable and can be correctly saved and loaded by PyTorch Lightning.
+    """
+
+    def __init__(self, num_warmup_steps: int, num_training_steps: int):
+        self.num_warmup_steps = num_warmup_steps
+        self.num_training_steps = num_training_steps
+
+    def __call__(self, current_step: int):
+        if current_step < self.num_warmup_steps:
+            return float(current_step) / float(max(1, self.num_warmup_steps))
+        return max(
+            0.0,
+            float(self.num_training_steps - current_step)
+            / float(max(1, self.num_training_steps - self.num_warmup_steps)),
+        )
 
 
 @register_optimizer("adam")
@@ -88,17 +110,29 @@ def build_plateau_lr(optimizer, config: dict = None):
     )
 
 
+@register_scheduler("linear_warmup")
+def build_linear_warmup(optimizer, config: dict = None):
+    """Builds the linear warmup, linear decay scheduler using a picklable class."""
+    cfg = config or {}
+    if "num_training_steps" not in cfg:
+        raise ValueError(
+            "`num_training_steps` must be specified for linear_warmup scheduler."
+        )
+
+    # Instantiate our new picklable class
+    lr_lambda_func = _LinearWarmupDecay(
+        num_warmup_steps=cfg.get("num_warmup_steps", 500),
+        num_training_steps=cfg.get("num_training_steps"),
+    )
+
+    return LambdaLR(optimizer, lr_lambda_func)
+
+
 def get_optimizer(params, config: Optional[dict], scheduler_cfg: Optional[dict] = None):
     """
     Build optimizer (and scheduler if requested).
 
-    Args:
-        params: model parameters
-        config: optimizer config dict {name: "adamw", lr: 1e-3, ...}
-        scheduler_cfg: scheduler config dict {name: "step_lr", step_size: 5, ...}
-
-    Returns:
-        optimizer or dict with optimizer + scheduler (Lightning-compatible).
+    # ... (docstring no change) ...
     """
     if config is None:
         raise ValueError("Optimizer config must be provided")
@@ -117,7 +151,22 @@ def get_optimizer(params, config: Optional[dict], scheduler_cfg: Optional[dict] 
             raise ValueError(
                 f"Unknown scheduler: {sched_name}. Available: {list(SCHEDULER_REGISTRY.keys())}"
             )
-        scheduler = SCHEDULER_REGISTRY[sched_name](optimizer, scheduler_cfg)
-        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+
+        scheduler_instance = SCHEDULER_REGISTRY[sched_name](optimizer, scheduler_cfg)
+
+        # We tell Lightning this by returning a dictionary with the interval.
+        scheduler_dict = {
+            "scheduler": scheduler_instance,
+            "interval": scheduler_cfg.get(
+                "interval", "epoch"
+            ),  # Default to epoch for old schedulers
+            "frequency": 1,
+        }
+
+        # For linear_warmup, scheduler, we want the interval to be 'step'.
+        if sched_name == "linear_warmup":
+            scheduler_dict["interval"] = "step"
+
+        return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
 
     return optimizer

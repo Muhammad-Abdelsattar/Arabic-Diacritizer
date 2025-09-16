@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
 
-from lightning.pytorch.loggers import Logger, TensorBoardLogger, WandbLogger
+from lightning.pytorch.loggers import Logger, TensorBoardLogger, WandbLogger, CSVLogger
 
 # Configure a basic logger for this module
 _LOGGER = logging.getLogger(__name__)
@@ -9,6 +9,7 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORTED_LOGGERS = {
     "tensorboard": TensorBoardLogger,
     "wandb": WandbLogger,
+    "csv": CSVLogger,
 }
 
 

@@ -81,10 +81,40 @@ class CharTokenizer:
         ]
         return input_ids, label_ids
 
-    def decode(self, input_ids: List[int], label_ids: List[int]) -> str:
+    def decode(
+        self, input_ids: List[int], label_ids: List[int], cleanup_mode: str = "clean"
+    ) -> str:
         """
-        Decode (input_ids, label_ids) → string with diacritics.
+        Decode (input_ids, label_ids) -> string with diacritics.
+
+        Args:
+            input_ids: List of character IDs.
+            label_ids: List of predicted diacritic IDs.
+            cleanup_mode (str): Determines the post-processing strategy.
+                - "clean": (Default) Removes diacritics from non-Arabic letters (e.g., punctuation, spaces).
+                - "raw": Returns the raw model output without any cleanup.
+
+        Returns:
+            The reconstructed, diacritized string.
         """
+        if cleanup_mode not in {"clean", "raw"}:
+            raise ValueError("cleanup_mode must be either 'clean' or 'raw'.")
+
         chars = [self.id2char.get(i, "<UNK>") for i in input_ids]
         diacs = [self.id2diacritic.get(i, "") for i in label_ids]
-        return "".join(ch + d for ch, d in zip(chars, diacs))
+
+        if cleanup_mode == "raw":
+            return "".join(ch + d for ch, d in zip(chars, diacs))
+
+        # Default is "clean" mode
+        cleaned_output = []
+        for char, diac in zip(chars, diacs):
+            # Only attach a diacritic if the character is a valid Arabic letter
+            if char in ARABIC_LETTERS:
+                cleaned_output.append(char + diac)
+            else:
+                cleaned_output.append(
+                    char
+                )  # Append the character without the predicted diacritic
+
+        return "".join(cleaned_output)

@@ -1,4 +1,5 @@
-import torch
+import math
+from typing import Optional, Dict, Any
 import lightning as L
 from .optimizers import get_optimizer
 from ..metrics import MetricsManager
@@ -17,12 +18,14 @@ class ModelingOrchestrator(L.LightningModule):
         optimizer_cfg: dict,
         metrics: dict = None,
         scheduler_cfg: dict = None,
+        reset_optimizer_and_scheduler: bool = False,
     ):
         super().__init__()
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer_cfg = optimizer_cfg
         self.scheduler_cfg = scheduler_cfg
+        self.reset_optimizer_and_scheduler = reset_optimizer_and_scheduler
 
         self.metrics = metrics
 
@@ -38,6 +41,21 @@ class ModelingOrchestrator(L.LightningModule):
 
         # Save hparams for reproducibility
         self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        """
+        Hook called when a checkpoint is loaded.
+        Used to selectively reset the optimizer and scheduler states.
+        """
+        if self.reset_optimizer_and_scheduler:
+            keys_to_remove = {"optimizer_states", "lr_schedulers"}
+            for key in keys_to_remove:
+                if key in checkpoint:
+                    del checkpoint[key]
+
+            print(
+                "[INFO] Hook `on_load_checkpoint`: Removed optimizer and scheduler states from the checkpoint."
+            )
 
     def _forward_logits(self, inputs, lengths=None):
         return self.model(inputs, lengths)
@@ -118,8 +136,35 @@ class ModelingOrchestrator(L.LightningModule):
             self.test_metrics.reset()
 
     def configure_optimizers(self):
+        """
+        Builds the optimizer and a dynamically configured scheduler.
+        """
+        scheduler_cfg = self.scheduler_cfg.copy() if self.scheduler_cfg else None
+
+        # Dynamically calculate training steps if a warmup scheduler is used
+        if scheduler_cfg and scheduler_cfg.get("name") == "linear_warmup":
+
+            # It correctly handles multi-GPU, accelerators, and gradient accumulation.
+            total_training_steps = self.trainer.estimated_stepping_batches
+
+            if total_training_steps == float("inf"):
+                raise ValueError(
+                    "Cannot determine total training steps. Please set `max_epochs` or `max_steps` in the trainer config."
+                )
+
+            warmup_ratio = scheduler_cfg.pop("warmup_ratio", 0.1)
+            num_warmup_steps = math.ceil(total_training_steps * warmup_ratio)
+
+            # Add the dynamically calculated values to the scheduler config
+            scheduler_cfg["num_training_steps"] = total_training_steps
+            scheduler_cfg["num_warmup_steps"] = num_warmup_steps
+
+            print("[INFO] Scheduler configured dynamically:")
+            print(f"  - Total training steps: {total_training_steps}")
+            print(f"  - Warmup steps ({warmup_ratio*100}%): {num_warmup_steps}")
+
         return get_optimizer(
             params=self.model.parameters(),
             config=self.optimizer_cfg,
-            scheduler_cfg=self.scheduler_cfg,
+            scheduler_cfg=scheduler_cfg,
         )

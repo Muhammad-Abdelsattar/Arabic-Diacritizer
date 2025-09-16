@@ -7,6 +7,7 @@ from lightning.pytorch.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     DeviceStatsMonitor,
+    RichProgressBar,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,36 +17,13 @@ SUPPORTED_CALLBACKS = {
     "early_stopping": EarlyStopping,
     "lr_monitor": LearningRateMonitor,
     "device_stats": DeviceStatsMonitor,
+    "rich_progress_bar": RichProgressBar,
 }
 
 
 def get_callbacks(config: Optional[List[Dict[str, Any]]]) -> List[Callback]:
     """
     Builds a list of PyTorch Lightning callbacks from a configuration list.
-
-    Each item in the list is a dictionary that must contain a 'name' key, which
-    corresponds to a supported callback, and the rest of the keys are passed as
-    arguments to the callback's constructor.
-
-    Args:
-        config: A list of callback configurations. Can be None or empty.
-            Example:
-            [
-                {
-                    "name": "model_checkpoint",
-                    "dirpath": "checkpoints/",
-                    "monitor": "val_loss",
-                    "mode": "min"
-                },
-                {"name": "early_stopping", "patience": 5}
-            ]
-
-    Returns:
-        A list of instantiated `lightning.pytorch.callbacks.Callback` objects.
-        Returns an empty list if the config is None or empty.
-
-    Raises:
-        ValueError: If a callback name specified in the config is not supported.
     """
     if not config:
         _LOGGER.info("No callbacks configured.")

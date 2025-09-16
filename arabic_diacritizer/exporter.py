@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional, List
 import torch
 import torch.nn as nn  # Explicitly import nn for clarity
 from .data import CharTokenizer
+from .data.preprocessing.constants import ARABIC_LETTERS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ def _save_vocabularies(tokenizer: CharTokenizer, output_path: Path):
         "id2diacritic": tokenizer.id2diacritic,
         "pad_idx": tokenizer.char2id.get("<PAD>", 0),  # Explicitly save pad_idx
         "unk_idx": tokenizer.char2id.get("<UNK>", 1),  # Explicitly save unk_idx
+        "arabic_letters": sorted(list(ARABIC_LETTERS)),
     }
     vocab_path = output_path / "vocab.json"
     with open(vocab_path, "w", encoding="utf-8") as f:
