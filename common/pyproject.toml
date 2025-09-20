@@ -1,0 +1,12 @@
+[project]
+name = "arabic_diacritizer_common"
+version = "0.1.0"
+description = "Shared, lightweight utilities for Character based Arabic text processing and tokenization for the Diacritizer training and inference."
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

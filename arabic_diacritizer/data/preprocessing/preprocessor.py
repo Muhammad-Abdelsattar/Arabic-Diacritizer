@@ -4,8 +4,11 @@ from typing import List, Optional
 
 from tqdm import tqdm
 
-from .cleaners import TextCleaner, DiacriticValidator
-from .segmenter import TextSegmenter
+from arabic_diacritizer_common import (
+   TextCleaner,
+   DiacriticValidator,
+   TextSegmenter,
+)
 
 
 _LOGGER = logging.getLogger("arabic_diacritizer.preprocessor")

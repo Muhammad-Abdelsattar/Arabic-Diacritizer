@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 
-from .preprocessing import ArabicDiacritics, ARABIC_LETTERS, VALID_ARABIC_CHARS
-from .preprocessing import DiacriticValidator, TextCleaner
+from .constants import ArabicDiacritics, ARABIC_LETTERS, VALID_ARABIC_CHARS
+from .cleaners import DiacriticValidator, TextCleaner
 
 
 class CharTokenizer:
