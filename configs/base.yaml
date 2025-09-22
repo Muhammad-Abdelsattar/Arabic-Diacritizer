@@ -1,30 +1,25 @@
 seed: 42
 
 data:
-  train_files: ["data/processed/cleaned.txt"]
+  train_files: ["data/processed/gemini-data-processed.txt"]
   val_files: null
   test_files: null
-  batch_size: 512
+  batch_size: 256
   num_workers: 12
   cache_dir: ".cache/"
   cache_format: "npz"
   max_length: 512
-  val_split: 0.1
-  test_split: 0.1
+  val_split: 0.05
+  test_split: 0
 
 # Modeling Configuration
 modeling_config:
   architecture:
-    # name: "bilstm"
-    # embedding_dim: 128
-    # hidden_dim: 256
-    # num_layers: 2
-    # dropout: 0.3
-    name: "transformer_encoder"
-    d_model: 128
-    nhead: 4
-    num_encoder_layers: 6
-    dim_feedforward: 512
+    name: "bilstm"
+    embedding_dim: 128
+    hidden_dim: 256
+    num_layers: 2
+    dropout: 0.3
 
   loss:
     name: "cross_entropy"
@@ -43,28 +38,33 @@ trainer:
   max_epochs: 20
   accelerator: "auto"
   devices: 1
-  precision: "32"
+  precision: "16-mixed"
   log_every_n_steps: 100
+  gradient_clip_val: 1.0
   
   loggers:
     - name: "tensorboard"
       save_dir: "lightning_logs/"
     # - name: "wandb"
-    #   project: "arabic-diacritizer"
-    #   name: ${oc.env:RUN_NAME, null} # Example of using env var
+    #   project: "${oc.env:RUN_NAME,Arabic-Diacritizer}"
+    #   name: ${oc.env:RUN_NAME, null}
+    #   log_model: all
+
 
   callbacks:
     - name: "model_checkpoint"
-      monitor: "val_loss"
-      mode: "min"
+      monitor: "val_der"
+      mode: "max"
       save_top_k: 1
       filename: "best_model"
     - name: "early_stopping"
       monitor: "val_loss"
       mode: "min"
-      patience: 100
-    # - name: "lr_monitor"
-    #   logging_interval: "step"
+      patience: 10
+    - name: "lr_monitor"
+      logging_interval: "step"
+    - name: "rich_progress_bar"
+      leave: false
 
 export:
   output_dir: "artifacts/"

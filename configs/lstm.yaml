@@ -1,7 +1,30 @@
+data:
+  train_files: ["data/processed/synthetic_regular_processed.txt"]
+  val_files: null
+  test_files: null
+  batch_size: 256
+  num_workers: 12
+  cache_dir: ".cache/"
+  cache_format: "npz"
+  max_length: 512
+  val_split: 0.05
+  test_split: 0
+
 modeling_config:
   architecture:
     name: "bilstm"
     embedding_dim: 128
     hidden_dim: 128
-    num_layers: 2
+    num_layers: 3
     dropout: 0.3
+  optimizer:
+    name: "adamw"
+    lr: 0.0006
+    weight_decay: 0.01
+
+  scheduler: 
+    name: "cosine"
+    t_max: 50
+
+trainer:
+  max_epochs: 50
