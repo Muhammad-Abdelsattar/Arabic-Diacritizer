@@ -6,7 +6,7 @@ from pathlib import Path
 import pickle
 import logging
 
-from .tokenizer import CharTokenizer
+from arabic_diacritizer_common import CharTokenizer
 
 # Logger setup (remains the same)
 _LOGGER = logging.getLogger("arabic_diacritizer.dataset")

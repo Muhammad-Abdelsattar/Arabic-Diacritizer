@@ -27,7 +27,7 @@ def build_data_manager(data_config: Dict[str, Any]) -> DataManager:
 def build_modeling_orchestrator(
     modeling_config: Dict[str, Any],
     datamodule: DataManager,
-    reset_optimizer_and_scheduler: bool = False,
+    # reset_optimizer_and_scheduler: bool = False,
 ) -> ModelingOrchestrator:
     """Builds the core ModelingOrchestrator LightningModule."""
     _LOGGER.info("Building ModelingOrchestrator...")
@@ -73,7 +73,7 @@ def build_modeling_orchestrator(
         metrics=metrics,
         optimizer_cfg=modeling_config["optimizer"],
         scheduler_cfg=modeling_config.get("scheduler"),
-        reset_optimizer_and_scheduler=reset_optimizer_and_scheduler,
+        # reset_optimizer_and_scheduler=reset_optimizer_and_scheduler,
     )
     lightning_module.tokenizer = tokenizer
     _LOGGER.info(

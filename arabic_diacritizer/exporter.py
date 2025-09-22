@@ -5,8 +5,8 @@ from typing import Dict, Any, Optional, List
 
 import torch
 import torch.nn as nn  # Explicitly import nn for clarity
-from .data import CharTokenizer
-from .data.preprocessing.constants import ARABIC_LETTERS
+from arabic_diacritizer_common import CharTokenizer
+from arabic_diacritizer_common import ARABIC_LETTERS
 
 _LOGGER = logging.getLogger(__name__)
 

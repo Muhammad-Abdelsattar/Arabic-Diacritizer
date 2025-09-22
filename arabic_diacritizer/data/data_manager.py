@@ -91,8 +91,6 @@ class DataManager(L.LightningDataModule):
 
         return inputs_tensor, labels_tensor, lengths_tensor
 
-    # The rest of the DataManager class (setup, train_dataloader, etc.) remains the same.
-    # ...
     def setup(self, stage: Optional[str] = None):
         _LOGGER.info(f"Setting up DataManager (stage={stage})")
 

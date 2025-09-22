@@ -5,9 +5,9 @@ from typing import List, Optional
 from tqdm import tqdm
 
 from arabic_diacritizer_common import (
-   TextCleaner,
-   DiacriticValidator,
-   TextSegmenter,
+    TextCleaner,
+    DiacriticValidator,
+    TextSegmenter,
 )
 
 
@@ -35,6 +35,7 @@ class DatasetPreprocessor:
         validate: bool = True,
         filter_non_arabic: bool = True,
         chunk_size: int = 200,
+        normalize: bool = False,
     ):
         """
         Args:
@@ -47,9 +48,12 @@ class DatasetPreprocessor:
         self.validate = validate
         self.filter_non_arabic = filter_non_arabic
         self.chunk_size = chunk_size
+        self.normalize = normalize
 
     def _process_line(self, line: str) -> List[str]:
-        line = TextCleaner.clean_text(line, keep_valid_only=self.filter_non_arabic)
+        line = TextCleaner.clean_text(
+            line, keep_valid_only=self.filter_non_arabic, normalize=self.normalize
+        )
         if not line.strip():
             return []
 
@@ -141,7 +145,7 @@ class DatasetPreprocessor:
     ) -> List[str]:
         """
         Process corpus and return cleaned lines as a list.
-        ⚠️ Not recommended for >100 MB files.
+        Not recommended for >100 MB files.
         """
         results = []
         total_processed = 0
