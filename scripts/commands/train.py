@@ -1,72 +1,63 @@
-from typing import List, Optional
-
+from typing import Optional
 import typer
 from omegaconf import OmegaConf
 
 from scripts.utils import load_config
 from arabic_diacritizer.training.training_pipeline import TrainingPipeline
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 
 @app.callback(invoke_without_command=True)
 def train(
     ctx: typer.Context,
+    ckpt_path: Optional[str] = typer.Option(
+        None,
+        "--ckpt-path",
+        "-c",
+        help="Path to a checkpoint to start training from (either resume or finetune).",
+    ),
+    finetune: bool = typer.Option(
+        False,
+        "-f",
+        "--finetune",
+        help="Start a new run from the checkpoint (epoch 0, new optimizer). If not set, resumes training state.",
+    ),
     experiment: Optional[str] = typer.Option(
         None,
         "-e",
         "--experiment",
         help="Path to an experiment file to override base configs.",
     ),
-    resume_from_checkpoint: Optional[str] = typer.Option(
-        None,
-        "-r",
-        "--resume-from-checkpoint",
-        help="Path to a .ckpt file to resume training. This loads the config from the checkpoint.",
-    ),
 ):
     """
-    Train a new model or resume training from a checkpoint.
+    Train a new model, resume a previous run, or finetune from existing weights.
     """
-    reset_optimizer = False
-    if resume_from_checkpoint and ctx.args:
-        # Check if any CLI override targets the optimizer or scheduler
-        if any(arg.startswith(("optimizer.", "scheduler.")) for arg in ctx.args):
-            reset_optimizer = True
-            typer.secho(
-                "[INFO] Optimizer/scheduler config override detected. The optimizer and scheduler states will be reset.",
-                fg=typer.colors.YELLOW,
-            )
+    if finetune and not ckpt_path:
+        typer.secho(
+            "Error: The --finetune flag requires a --ckpt-path.", fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
 
-    # The load_config function handles all complex logic for determining the final configuration
     config = load_config(
-        resume_from_checkpoint=resume_from_checkpoint,
+        resume_from_checkpoint=ckpt_path,
         experiment_config_path=experiment,
         cli_overrides=ctx.args,
     )
 
-    if resume_from_checkpoint:
-        typer.secho(
-            f"Resuming training from: {resume_from_checkpoint}", fg=typer.colors.GREEN
-        )
-    else:
-        typer.secho("Starting a new training run...", fg=typer.colors.GREEN)
-
-    typer.echo("--- Final Merged Configuration for this Run ---")
+    typer.echo("---------------------------------------------\n")
+    typer.echo(" Final Merged Configuration for this Run \n")
+    typer.echo("---------------------------------------------\n")
     typer.echo(OmegaConf.to_yaml(config))
     typer.echo("---------------------------------------------\n")
 
-    # Convert to a plain dictionary for the pipeline
     config_dict = OmegaConf.to_container(config, resolve=True)
 
     pipeline = TrainingPipeline(config_dict)
-    pipeline.run(ckpt_path=resume_from_checkpoint, reset_optimizer_and_scheduler=reset_optimizer)
 
-
-if __name__ == "__main__":
-    typer.echo("Error: This script is not meant to be run directly.", err=True)
-    typer.echo(
-        "Please use the main entry point: `python scripts/run.py train [OPTIONS]`",
-        err=True,
-    )
-    exit(1)
+    if ckpt_path and finetune:
+        # Finetune Workflow
+        pipeline.finetune(ckpt_path=ckpt_path)
+    else:
+        # New Run or Resume Workflow
+        pipeline.run(ckpt_path=ckpt_path)

@@ -1,10 +1,10 @@
 import typer
 
-from scripts.utils import add_project_root_to_path
+# from scripts.utils import add_project_root_to_path
+#
+# # add_project_root_to_path()
 
-# add_project_root_to_path()
-
-from scripts.commands import train, evaluate, export
+from scripts.commands import train, evaluate, export, preprocess
 
 # Create the main Typer application
 app = typer.Typer(
@@ -18,6 +18,7 @@ app = typer.Typer(
 app.add_typer(train.app, name="train")
 app.add_typer(evaluate.app, name="evaluate")
 app.add_typer(export.app, name="export")
+app.add_typer(preprocess.app, name="preprocess")
 
 
 if __name__ == "__main__":
