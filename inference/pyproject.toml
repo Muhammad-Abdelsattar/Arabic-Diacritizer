@@ -3,9 +3,9 @@ name = "arabic_diacritizer"
 version = "0.1.0"
 description = "An efficient lightweight pytorch-free, onnxruntime based inference package for the Arabic Diacritizer model."
 dependencies = [
-    # "onnxruntime>=1.15.0",
-    # "numpy>=1.23.0",
-    # "arabic_diacritizer_common>=0.1.0"
+    "onnxruntime>=1.15.0",
+    "numpy>=1.23.0",
+    "arabic_diacritizer_common>=0.1.0"
 ]
 
 [build-system]
