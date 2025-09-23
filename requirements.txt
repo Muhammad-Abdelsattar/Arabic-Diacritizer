@@ -1,0 +1,17 @@
+torch
+lightning
+
+torchmetrics
+numpy
+
+# Command-Line Interface (CLI)
+typer[all]
+
+# Configuration Management
+omegaconf
+
+tqdm
+
+# Model Exporting
+onnx
+onnxruntime
