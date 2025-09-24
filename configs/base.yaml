@@ -45,18 +45,18 @@ trainer:
   loggers:
     - name: "tensorboard"
       save_dir: "lightning_logs/"
-    # - name: "wandb"
-    #   project: "${oc.env:RUN_NAME,Arabic-Diacritizer}"
-    #   name: ${oc.env:RUN_NAME, null}
-    #   log_model: all
+    - name: "wandb"
+      project: "${oc.env:RUN_NAME,Arabic-Diacritizer}"
+      name: ${oc.env:RUN_NAME, null}
+      log_model: all
 
 
   callbacks:
     - name: "model_checkpoint"
       monitor: "val_der"
-      mode: "max"
-      save_top_k: 1
-      filename: "best_model"
+      mode: "min"
+      save_top_k: 3
+      filename: "diacritizer-epoch={epoch:02d}-val-der={val_der:.2f}"
     - name: "early_stopping"
       monitor: "val_loss"
       mode: "min"

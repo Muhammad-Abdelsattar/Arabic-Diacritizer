@@ -62,7 +62,7 @@ class DiacritizationDataset(Dataset):
         self._data = None
         self._inputs_npz = None
         self._labels_npz = None
-        self._lengths_npz = None # Added for lengths
+        self._lengths_npz = None 
 
         if self.cache_dir and self.cache_format != "none":
             self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -75,7 +75,7 @@ class DiacritizationDataset(Dataset):
             elif self.cache_format == "npz":
                 inputs_file = self.cache_dir / f"{stem_combo}_inputs.npy"
                 labels_file = self.cache_dir / f"{stem_combo}_labels.npy"
-                lengths_file = self.cache_dir / f"{stem_combo}_lengths.npy" # New lengths file
+                lengths_file = self.cache_dir / f"{stem_combo}_lengths.npy"
                 self._init_npz_cache(inputs_file, labels_file, lengths_file)
 
         elif preload and self.cache_format == "none":
@@ -108,6 +108,9 @@ class DiacritizationDataset(Dataset):
         """
         Initializes the NPZ cache, now including a separate file for sequence lengths.
         """
+        print(self.max_length)
+        print(self.max_length)
+        print(self.max_length)
         if self.max_length is None:
             raise ValueError(
                 "The `max_length` must be specified when using 'npz' cache format."

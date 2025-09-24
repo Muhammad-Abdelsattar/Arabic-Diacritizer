@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional, Union, Tuple
 
+from arabic_diacritizer_common import tokenizer
 import torch
 from torch.utils.data import DataLoader, random_split, Subset
 import lightning as L
@@ -21,7 +22,6 @@ if not _LOGGER.handlers:
 
 
 class DataManager(L.LightningDataModule):
-    # __init__ method remains the same
     def __init__(
         self,
         train_files: Union[str, List[str]],
@@ -74,17 +74,13 @@ class DataManager(L.LightningDataModule):
         max_len_in_batch = max(lengths)
 
         # Stack the numpy arrays into a single batch array
-        # The arrays are already padded to max_length from the dataset
         inputs_np = np.stack(inputs_list, axis=0)
         labels_np = np.stack(labels_list, axis=0)
 
-        # Slice the batch down to the max length found in this batch.
         # This is the crucial step that prevents sending unnecessary padding to the GPU.
         inputs_sliced = inputs_np[:, :max_len_in_batch]
         labels_sliced = labels_np[:, :max_len_in_batch]
 
-        # Convert the sliced numpy arrays to PyTorch tensors.
-        # torch.from_numpy is very fast as it avoids a data copy.
         inputs_tensor = torch.from_numpy(inputs_sliced).long()
         labels_tensor = torch.from_numpy(labels_sliced).long()
         lengths_tensor = torch.tensor(lengths, dtype=torch.long)
@@ -119,23 +115,22 @@ class DataManager(L.LightningDataModule):
             base_train_ds = Subset(base_train_ds, sorted_indices)
             _LOGGER.info("Sortish bucketing applied successfully.")
 
-            # CASE 1: All three provided
             if self.val_files and self.test_files:
                 _LOGGER.info("Train/Val/Test files all provided -> using as-is")
                 self.train_dataset = base_train_ds
                 self.val_dataset = DiacritizationDataset(
-                    self.val_files,
-                    self.tokenizer,
-                    self.cache_dir,
-                    self.cache_format,
-                    self.max_length,
+                    file_paths=self.val_files,
+                    tokenizer=self.tokenizer,
+                    cache_dir=self.cache_dir,
+                    cache_format=self.cache_format,
+                    max_length=self.max_length,
                 )
                 self.test_dataset = DiacritizationDataset(
-                    self.test_files,
-                    self.tokenizer,
-                    self.cache_dir,
-                    self.cache_format,
-                    self.max_length,
+                    file_paths=self.test_files,
+                    tokenizer=self.tokenizer,
+                    cache_dir=self.cache_dir,
+                    cache_format=self.cache_format,
+                    max_length=self.max_length,
                 )
 
             # CASE 2: Only train provided
@@ -160,11 +155,11 @@ class DataManager(L.LightningDataModule):
                     "Validation set not provided. Splitting train set for validation"
                 )
                 self.test_dataset = DiacritizationDataset(
-                    self.test_files,
-                    self.tokenizer,
-                    self.cache_dir,
-                    self.cache_format,
-                    self.max_length,
+                    file_paths=self.test_files,
+                    tokenizer=self.tokenizer,
+                    cache_dir=self.cache_dir,
+                    cache_format=self.cache_format,
+                    max_length=self.max_length,
                 )
                 n_total = len(base_train_ds)
                 n_val = max(1, int(n_total * self.val_split))
@@ -182,11 +177,11 @@ class DataManager(L.LightningDataModule):
                     "Test set not provided. Using provided Val as Test. Splitting train for new Val set"
                 )
                 self.test_dataset = DiacritizationDataset(
-                    self.val_files,
-                    self.tokenizer,
-                    self.cache_dir,
-                    self.cache_format,
-                    self.max_length,
+                    file_paths=self.val_files,
+                    tokenizer=self.tokenizer,
+                    cache_dir=self.cache_dir,
+                    cache_format=self.cache_format,
+                    max_length=self.max_length,
                 )
                 n_total = len(base_train_ds)
                 n_val = max(1, int(n_total * self.val_split))
@@ -202,11 +197,11 @@ class DataManager(L.LightningDataModule):
         if stage == "test" or stage is None:
             if self.test_dataset is None and self.test_files:
                 self.test_dataset = DiacritizationDataset(
-                    self.test_files,
-                    self.tokenizer,
-                    self.cache_dir,
-                    self.cache_format,
-                    self.max_length,
+                    file_paths=self.test_files,
+                    tokenizer=self.tokenizer,
+                    cache_dir=self.cache_dir,
+                    cache_format=self.cache_format,
+                    max_length=self.max_length,
                 )
 
     def train_dataloader(self):
