@@ -78,7 +78,6 @@ def evaluate(
     typer.echo(f"| > Max sequence length: {max_length}")
     str_data_files = [str(f) for f in data_files]
     datamodule = DataManager(
-        # The train_files argument is required, but we won't use it.
         # We pass our data to `test_files` which will be used in the 'test' stage.
         train_files=str_data_files,
         test_files=str_data_files,
@@ -86,7 +85,7 @@ def evaluate(
         num_workers=num_workers,
         max_length=max_length,
         cache_dir=".cache/",
-        cache_format="npz",  # Use npz for efficiency
+        cache_format="npz",
     )
 
     # Attach the tokenizer from the loaded model to the datamodule
@@ -96,7 +95,7 @@ def evaluate(
     datamodule.setup(stage="test")
     typer.echo(f"| > Data loaded with {len(datamodule.test_dataset)} samples.")
 
-    # We only need a minimal trainer for evaluation. No loggers or callbacks needed.
+    # We only need a minimal trainer for evaluation
     typer.echo("| > Configuring trainer...")
     trainer = L.Trainer(
         accelerator=accelerator,
@@ -105,11 +104,9 @@ def evaluate(
     )
 
     typer.echo("\nRunning Evaluation ... ")
-    # The `trainer.test` method will automatically use the test dataloader
-    # from our datamodule and print the results to the console.
     trainer.test(model=lightning_module, datamodule=datamodule, verbose=True)
 
-    typer.secho("\n✔ Evaluation complete.", fg=typer.colors.GREEN)
+    typer.secho("\nEvaluation complete.", fg=typer.colors.GREEN)
 
 
 if __name__ == "__main__":

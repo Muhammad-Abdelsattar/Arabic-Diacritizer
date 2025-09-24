@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 
 import torch
 import typer
+import wandb
 from omegaconf import OmegaConf, DictConfig
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -102,3 +103,54 @@ def load_config(
 
     typer.echo("------------------------------------------\n")
     return conf
+
+
+def setup_wandb(config: DictConfig) -> None:
+    """
+    Sets up Weights & Biases for the run if configured.
+
+    This function checks if W&B is specified in the loggers. If so, it
+    attempts a non-interactive login using the WANDB_API_KEY environment
+    variable.
+
+    Args:
+        config: The fully merged OmegaConf configuration object.
+    """
+    # Find the wandb logger configuration, if it exists
+    if "loggers" not in config.trainer or not config.trainer.loggers:
+        return  # No loggers configured
+
+    wandb_config = next(
+        (logger for logger in config.trainer.loggers if logger.get("name") == "wandb"),
+        None,
+    )
+
+    if wandb_config is None:
+        # W&B is not being used
+        typer.echo("| > W&B logger not found in config. Skipping setup.")
+        return
+
+    # W&B is configured
+    typer.echo("| > W&B logger found. Attempting automated login...")
+    api_key = os.getenv("WANDB_API_KEY")
+
+    if api_key is None:
+        typer.secho(
+            "| > WARNING: W&B logger is configured, but the WANDB_API_KEY environment "
+            "variable is not set. W&B logging will be disabled for this run.",
+            fg=typer.colors.YELLOW,
+        )
+        config.trainer.loggers = [
+            logger for logger in config.trainer.loggers if logger.get("name") != "wandb"
+        ]
+        return
+
+    try:
+        wandb.login(key=api_key)
+        typer.secho("| > Successfully logged in to W&B.", fg=typer.colors.GREEN)
+    except wandb.errors.UsageError as e:
+        typer.secho(
+            f"| > ERROR: Failed to log in to W&B with the provided API key. Error: {e}",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)

@@ -2,7 +2,7 @@ from typing import Optional
 import typer
 from omegaconf import OmegaConf
 
-from scripts.utils import load_config
+from scripts.utils import load_config, setup_wandb
 from arabic_diacritizer.training.training_pipeline import TrainingPipeline
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
@@ -45,6 +45,8 @@ def train(
         cli_overrides=ctx.args,
     )
 
+    setup_wandb(config)
+
     typer.echo("---------------------------------------------\n")
     typer.echo(" Final Merged Configuration for this Run \n")
     typer.echo("---------------------------------------------\n")
@@ -59,5 +61,5 @@ def train(
         # Finetune Workflow
         pipeline.finetune(ckpt_path=ckpt_path)
     else:
-        # New Run or Resume Workflow
+        # a New Run or Resume Workflow
         pipeline.run(ckpt_path=ckpt_path)
