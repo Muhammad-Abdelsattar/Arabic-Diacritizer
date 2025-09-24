@@ -47,7 +47,6 @@ trainer:
       save_dir: "lightning_logs/"
     - name: "wandb"
       project: "${oc.env:RUN_NAME,Arabic-Diacritizer}"
-      name: ${oc.env:RUN_NAME, null}
       log_model: all
 
 
