@@ -200,3 +200,62 @@ In this example:
 - `base.yaml` is loaded first.
 - `transformer.yaml` overrides it.
 - The CLI arguments `data.batch_size=128`, `trainer.max_epochs=10`, and `modeling_config.optimizer.lr=0.0005` are applied last, overriding any values for these keys that were set in the previous files.
+
+## 4. Automated Weights & Biases Integration
+
+This project includes an automated integration with Weights & Biases (W&B) for seamless experiment tracking and model versioning. The setup is designed to be optional and secure.
+
+#### How it Works
+
+1.  **Configuration Check:** The script first checks your final merged configuration for a `wandb` logger. If it's not present, nothing happens.
+2.  **Authentication:** If a `wandb` logger is found, the script looks for an environment variable named `WANDB_API_KEY`.
+3.  **Automatic Login:** If the environment variable is set, it performs a non-interactive login to W&B. If not, it prints a warning and gracefully disables W&B for the run to prevent errors.
+
+#### How to Use It
+
+**Step A: Configure the W&B Logger**
+
+Ensure the `wandb` logger is enabled in your configuration file (`configs/base.yaml` or an experiment file). The most important setting for model versioning is `log_model: "all"`.
+
+```yaml
+# In your config file:
+trainer:
+    loggers:
+        - name: "wandb" #Must be named "wandb"
+          project: "arabic-diacritizer"
+          log_model: "all"
+          # ... other wandb settings
+```
+
+**Step B: Set the Environment Variable**
+
+You must set the `WANDB_API_KEY` environment variable in your terminal before running the training script. You can get your key from your W&B account settings.
+
+**On Linux / macOS:**
+
+```bash
+export WANDB_API_KEY="your_secret_api_key_here"
+```
+
+**On Windows (Command Prompt):**
+
+```cmd
+set WANDB_API_KEY="your_secret_api_key_here"
+```
+
+**On Windows (PowerShell):**
+
+```powershell
+$env:WANDB_API_KEY="your_secret_api_key_here"
+```
+
+> **Security Note:** Never hardcode your API key in any script or configuration file. Using an environment variable is the standard, secure way to handle secrets.
+
+**Step C: Run Training as Usual**
+
+Now, simply run your training command. The script will handle the rest.
+
+```bash
+# The script will now detect your W&B config and API key, and log everything automatically.
+python scripts/run.py train --experiment configs/lstm.yaml
+```

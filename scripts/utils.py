@@ -1,3 +1,4 @@
+import subprocess
 import os
 import sys
 from typing import List, Optional, Dict, Any
@@ -14,6 +15,48 @@ def add_project_root_to_path():
     """Adds the project root to the Python path for absolute imports."""
     if PROJECT_ROOT not in sys.path:
         sys.path.insert(0, PROJECT_ROOT)
+
+
+def get_git_commit_hash() -> str | None:
+    """
+    Gets the current git commit SHA hash.
+
+    Returns:
+        The SHA hash as a string, or None if not in a git repository.
+    """
+    try:
+        commit_hash = (
+            subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .strip()
+            .decode("utf-8")
+        )
+        return commit_hash
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        typer.secho(
+            "| > WARNING: Could not retrieve Git commit hash. "
+            "Run will not be linked to a specific commit.",
+            fg=typer.colors.YELLOW,
+        )
+        return None
+
+
+def get_git_branch_name() -> str | None:
+    """
+    Gets the current active git branch name.
+    """
+    try:
+        branch_name = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .strip()
+            .decode("utf-8")
+        )
+        return branch_name
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
 
 
 def load_config_from_checkpoint(ckpt_path: str) -> Dict[str, Any]:
@@ -101,6 +144,31 @@ def load_config(
             # This is the crucial step that prevents mismatches
             conf.modeling_config.architecture = architecture_to_enforce
 
+    git_hash = get_git_commit_hash()
+    git_branch = get_git_branch_name()
+    if git_branch or git_hash:
+        typer.echo("\t | > Injecting Git information into config...")
+        git_info = {"git": {"branch": git_branch, "commit_hash": git_hash}}
+        git_config = OmegaConf.create(git_info)
+        conf = OmegaConf.merge(conf, git_config)
+
+    if conf.trainer and conf.trainer.loggers:
+        wandb_config = next(
+            (
+                logger
+                for logger in conf.trainer.loggers
+                if logger.get("logger_name") == "wandb"
+            ),
+            None,
+        )
+
+        if wandb_config and not wandb_config.get("name") and git_branch:
+            wandb_config["name"] = git_branch
+            typer.secho(
+                f"\t | > W&B run name automatically set to Git branch: '{git_branch}'",
+                fg=typer.colors.CYAN,
+            )
+
     typer.echo("------------------------------------------\n")
     return conf
 
@@ -116,7 +184,6 @@ def setup_wandb(config: DictConfig) -> None:
     Args:
         config: The fully merged OmegaConf configuration object.
     """
-    # Find the wandb logger configuration, if it exists
     if "loggers" not in config.trainer or not config.trainer.loggers:
         return  # No loggers configured
 

@@ -43,11 +43,11 @@ def get_loggers(config: Optional[List[Dict[str, Any]]]) -> List[Logger]:
     loggers: List[Logger] = []
     for logger_conf in config:
         conf = logger_conf.copy()
-        logger_name = conf.pop("name", None)
+        logger_name = conf.pop("logger_name", None)
 
         if not logger_name:
             _LOGGER.warning(
-                "Found a logger configuration without a 'name' key. Skipping."
+                "Found a logger configuration without a 'logger_name' key. Skipping."
             )
             continue
 
