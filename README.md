@@ -18,15 +18,15 @@ We achieve this by focusing on efficient architectures (like small BiLSTMs and c
 
 ### 🚀 Key Features
 
+- **Hugging Face Hub Integration:** Get started instantly. The inference package automatically downloads and caches pre-trained models (`small`, `medium`, `large`) for you.
 - **Complete CLI Workflow:** Manage the entire lifecycle from the command line:
     1.  `preprocess`: Clean and segment raw text corpora.
     2.  `train`: Train, fine-tune, or resume runs with a single command.
     3.  `evaluate`: Test model performance on a held-out set.
     4.  `export`: Convert a PyTorch checkpoint into a deployment-ready ONNX model.
-- **Modular Model Factory:** Easily switch between different architectures (`BiLSTM`, `TransformerEncoder`) by changing a single line in a config file. The system is built to be easily extensible with new architectures.
-- **Configuration-Driven:** Control every aspect of your run—from data paths and model hyperparameters to optimizer settings—through clean `.yaml` files.
-- **Built on PyTorch Lightning:** Leverages a robust, industry-standard training framework for features like multi-GPU training, mixed-precision, and comprehensive logging out of the box.
-- **Lightweight Inference Engine:** The inference package is completely decoupled from PyTorch. It runs on **ONNX Runtime**, making it fast, portable, and easy to integrate into any application with minimal dependencies.
+- **Modular Model Factory:** Easily switch between different architectures (`BiLSTM`, `TransformerEncoder`) by changing a single line in a config file.
+- **Built on PyTorch Lightning:** Leverages a robust, industry-standard training framework.
+- **Lightweight Inference Engine:** The inference package is completely decoupled from PyTorch. It runs on **ONNX Runtime**, making it fast, portable, and easy to integrate into any application.
 
 ---
 
@@ -46,7 +46,7 @@ git clone https://github.com/muhammad-abdelsattar/arabic-diacritizer.git
 cd arabic-diacritizer
 
 # 2. Install the inference package and its dependencies
-pip install ./inference onnxruntime
+pip install ./inference huggingface-hub onnxruntime 
 
 ```
 

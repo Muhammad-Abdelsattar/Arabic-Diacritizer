@@ -5,7 +5,8 @@ description = "An efficient lightweight pytorch-free, onnxruntime based inferenc
 dependencies = [
     "onnxruntime>=1.15.0",
     "numpy>=1.23.0",
-    "arabic_diacritizer_common>=0.1.0"
+    "huggingface-hub",
+    "arabic_diacritizer_common @ file:./common"
 ]
 
 [build-system]
