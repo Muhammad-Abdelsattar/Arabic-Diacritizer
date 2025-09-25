@@ -5,36 +5,47 @@ import numpy as np
 
 from arabic_diacritizer_common import CharTokenizer, TextSegmenter
 from .predictor import OnnxPredictor
-from .exceptions import ModelNotFound, InvalidInputError
+from .hub_manager import resolve_model_path, DEFAULT_HUB_REPO_ID
 
 
 class Diacritizer:
-    def __init__(self, model_dir: Union[str, Path], use_gpu: bool = False):
+    def __init__(
+        self,
+        model_identifier: str = None,
+        size: str = "medium",
+        revision: str = "main",
+        force_sync: bool = False,
+        use_gpu: bool = False,
+    ):
         """
         Initializes the Diacritizer by loading the model and tokenizer.
 
+        The model can be loaded from a local directory or downloaded automatically
+        from the Hugging Face Hub.
+
         Args:
-            model_dir: Path to the directory containing model.onnx, vocab.json, and config.json.
-            use_gpu: If True, will attempt to use CUDA for inference. Defaults to False.
+            model_identifier (str, optional): The identifier for the model.
+                - Can be a path to a local directory.
+                - Can be a repository ID on the Hugging Face Hub (e.g., "your-name/your-repo").
+                If None, defaults to the official pre-trained model repository.
+            size (str): The model size ('small', 'medium', 'large'). Defaults to "medium".
+            revision (str): A specific model version from the Hub (tag, branch, or commit). Defaults to "main".
+            force_sync (bool): If True, forces a re-download from the Hub. Defaults to False.
+            use_gpu (bool): If True, attempts to use CUDA for inference. Defaults to False.
         """
-        model_dir = Path(model_dir)
-        onnx_path = model_dir / "model.onnx"
-        vocab_path = model_dir / "vocab.json"
-        config_path = model_dir / "config.json"
-
-        if not all([onnx_path.exists(), vocab_path.exists()]):
-            raise ModelNotFound(
-                "Model directory must contain 'model.onnx', 'vocab.json'."
-            )
-
-        # load metadata
-        # config = json.loads(config_path.read_text("utf-8"))
-        # self.max_length = config.get("max_length", -1)
         self.max_length = -1
+
+        repo_to_resolve = model_identifier or DEFAULT_HUB_REPO_ID
+
+        onnx_path, vocab_path = resolve_model_path(
+            model_identifier=repo_to_resolve,
+            size=size,
+            revision=revision,
+            force_sync=force_sync,
+        )
 
         self.predictor = OnnxPredictor(onnx_path, use_gpu)
 
-        # load tokenizer from the common package
         vocab_data = json.loads(vocab_path.read_text(encoding="utf-8"))
         self.tokenizer = CharTokenizer(
             char2id=vocab_data["char2id"],
