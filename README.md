@@ -46,25 +46,26 @@ git clone https://github.com/muhammad-abdelsattar/arabic-diacritizer.git
 cd arabic-diacritizer
 
 # 2. Install the inference package and its dependencies
-pip install ./inference huggingface-hub onnxruntime 
+pip install ./inference huggingface-hub onnxruntime
 
 ```
 
 Then, you can use the `Diacritizer` class to diacritize your text. Make sure to load the model from the directory containing `model.onnx` and `vocab.json`.
 
 ```python
+from diacritizer import Diacritizer
 
-from arabic_diacritizer_inference import Diacritizer
-
-# 1. Load the model from the directory containing model.onnx and vocab.json
-# This directory is created by the `export` command.
-diacritizer = Diacritizer("path/to/exported_model_dir")
+# 1. Initialize the diacritizer. The default 'medium' model will be
+#    downloaded from the Hugging Face Hub and cached locally.
+#    Subsequent initializations will be instant.
+diacritizer = Diacritizer()
 
 # 2. Diacritize your text
 text = "مرحبا بالعالم"
 diacritized_text = diacritizer.diacritize(text)
 
 print(diacritized_text)
+
 ```
 
 #### 2. Training a New Model
