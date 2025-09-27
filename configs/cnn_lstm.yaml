@@ -1,0 +1,33 @@
+data:
+  train_files: ["data/processed/synthetic_regular_processed.txt"]
+  val_files: null
+  test_files: null
+  batch_size: 256
+  num_workers: 12
+  cache_dir: ".cache/"
+  cache_format: "npz"
+  max_length: 512
+  val_split: 0.05
+  test_split: 0
+
+modeling_config:
+  architecture:
+    name: "cnn_bilstm"
+
+    embedding_dim: 128
+
+    # CNN Block Config
+    cnn_num_layers: 2
+    cnn_hidden_dim: 128
+    cnn_kernel_size: 3
+    cnn_dropout: 0.3
+    
+    # LSTM Block Config
+    lstm_hidden_dim: 128
+    lstm_num_layers: 2
+    lstm_dropout: 0.3
+
+  optimizer:
+    name: "adamw"
+    lr: 0.001
+    weight_decay: 0.01
