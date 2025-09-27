@@ -59,22 +59,19 @@ class TransformerEncoderDiacritizer(nn.Module):
         super().__init__()
         self.pad_idx = pad_idx
 
-        # 1. Embedding layer
         self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
         self.d_model = d_model
 
-        # 2. Positional Encoding
         self.pos_encoder = PositionalEncoding(d_model, dropout)
 
-        # 3. Transformer Encoder Stack
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model, nhead, dim_feedforward, dropout, batch_first=True
+            d_model, nhead, dim_feedforward, dropout, batch_first=True, norm_first=True
         )
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, num_layers=num_encoder_layers
         )
 
-        # 4. Final projection to diacritic classes
+        #  Final projection to diacritic classes
         self.fc = nn.Linear(d_model, num_classes)
 
     def _generate_padding_mask(self, src: torch.Tensor) -> torch.Tensor:
