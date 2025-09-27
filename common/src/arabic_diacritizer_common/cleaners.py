@@ -57,6 +57,11 @@ class TextCleaner:
             text = TextCleaner.filter_valid_arabic(text)
         return TextCleaner.collapse_whitespace(text)
 
+    @staticmethod
+    def strip_diacritics(text: str) -> str:
+        """Efficiently strips all diacritic marks from an Arabic string."""
+        return "".join(char for char in text if char not in DIACRITIC_CHARS)
+
 
 class DiacriticValidator:
     """Handles diacritic validation and extraction"""
@@ -134,4 +139,3 @@ class DiacriticValidator:
             return text
         except Exception:
             return ""
-

@@ -1,9 +1,16 @@
 import json
 from pathlib import Path
-from typing import Union
+from typing import Union, List
 import numpy as np
-
-from arabic_diacritizer_common import CharTokenizer, TextSegmenter
+from arabic_diacritizer_common import (
+    CharTokenizer,
+    TextSegmenter,
+    Postprocessor,
+    DiacriticValidator,
+    ARABIC_LETTERS_REGEX,
+    TextCleaner,
+    DIACRITIC_CHARS,
+)
 from .predictor import OnnxPredictor
 from .hub_manager import resolve_model_path, DEFAULT_HUB_REPO_ID
 
@@ -53,40 +60,80 @@ class Diacritizer:
         )
         self.segmenter = TextSegmenter()
 
-    def _diacritize_chunk(self, chunk: str) -> str:
-        """Helper to diacritize a single, short chunk of text."""
-        # tokenize the input text chunk
-        input_ids, _ = self.tokenizer.encode(chunk)
-        if not input_ids:
-            return ""
+    def _diacritize_batch(self, arabic_texts: List[str]) -> List[str]:
+        """Helper to diacritize a batch of clean, undiacritized Arabic strings."""
+        if not arabic_texts:
+            return []
 
-        input_tensor = np.array(input_ids, dtype=np.int64).reshape(1, -1)
-        logits = self.predictor.predict(input_tensor)
+        # Tokenize all text parts
+        all_input_ids = [self.tokenizer.encode(text)[0] for text in arabic_texts]
 
-        # decode the predictions
-        predicted_diacritic_ids = np.argmax(logits, axis=-1)[0]
-        return self.tokenizer.decode(input_ids, predicted_diacritic_ids.tolist())
+        # Pad the batch to the length of the longest sequence
+        max_len = max(len(ids) for ids in all_input_ids)
+        padded_input_ids = np.zeros((len(all_input_ids), max_len), dtype=np.int64)
+        for i, ids in enumerate(all_input_ids):
+            padded_input_ids[i, : len(ids)] = ids
 
-    def diacritize(self, text: str) -> str:
+        # inference
+        logits = self.predictor.predict(padded_input_ids)
+        predicted_diac_ids = np.argmax(logits, axis=-1)
+
+        # Decode the predictions
+        diacritized_texts = []
+        for i in range(len(all_input_ids)):
+            # Decode only the original, unpadded length
+            length = len(all_input_ids[i])
+            decoded_text = self.tokenizer.decode(
+                all_input_ids[i], predicted_diac_ids[i, :length].tolist()
+            )
+            diacritized_texts.append(decoded_text)
+
+        return diacritized_texts
+
+    def diacritize(self, text: str, postprocess: bool = True) -> str:
         """
-        Diacritizes a string of Arabic text, handling long inputs by segmentation.
+        Diacritizes text while preserving non-Arabic characters and structure.
+
+        This method dissects the input text into Arabic and non-Arabic segments.
+        It processes only the Arabic segments and then reassembles the string,
+        maintaining the original order and content of all non-Arabic parts.
+
+        Any existing diacritics in the Arabic segments are stripped before
+        being processed by the model to ensure a consistent output.
 
         Args:
-            text: The input text (without diacritics).
+            text (str): The input text.
 
         Returns:
-            The diacritized text.
-
-        Raises:
-            InvalidInputError: If the input text is not a valid string.
+            The diacritized string.
         """
-        if not text.strip():
+        if not text:
             return ""
 
-        # segment text into chunks the model can handle
-        segments = self.segmenter.segment_sentences(self.max_length, text)
+        # Remove all diacritics from the text
+        text = TextCleaner.remove_diacritics(text)
+        # Dissect the text into Arabic and non-Arabic segments.
+        segments = ARABIC_LETTERS_REGEX.split(text)
+        arabic_words = ARABIC_LETTERS_REGEX.findall(text)
 
-        # diacritize each segment
-        diacritized_segments = [self._diacritize_chunk(seg) for seg in segments]
+        words_for_model = [TextCleaner.strip_diacritics(word) for word in arabic_words]
 
-        return " ".join(filter(None, diacritized_segments))
+        # Run inference on the cleaned Arabic words.
+        # The model is called only once with a batch of all Arabic words.
+        if words_for_model:
+            diacritized_words = self._diacritize_batch(words_for_model)
+        else:
+            diacritized_words = []
+
+        # We interleave the original non-Arabic segments with the newly
+        # diacritized Arabic words.
+        result = []
+        for i, segment in enumerate(segments):
+            result.append(segment)
+            if i < len(diacritized_words):
+                result.append(diacritized_words[i])
+
+        if postprocess:
+            result = Postprocessor.postprocess("".join(result))
+
+        return result
