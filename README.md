@@ -117,6 +117,14 @@ The repository is organized into several key packages to maintain a clean separa
 
 ---
 
+### acknowledgements
+
+This project's architecture and training methodologies have been greatly inspired by the work of the open-source Arabic NLP community.
+
+A special acknowledgement and thanks goes to the **[Hareef](https://github.com/mush42/hareef)** repository. Studying its `hareef/sarf` model was an invaluable learning experience. Specifically, the innovative idea of training with partially diacritized inputs (what we call a "hint-based" mechanism) was a direct inspiration for some of the advanced models in this project. This technique has proven to be highly effective for improving the model's robustness and contextual understanding.
+
+---
+
 ### License
 
 This project is licensed under the [MIT License](LICENSE).
