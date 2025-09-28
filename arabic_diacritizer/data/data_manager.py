@@ -34,6 +34,7 @@ class DataManager(L.LightningDataModule):
         max_length: Optional[int] = None,
         val_split: float = 0.1,
         test_split: float = 0.1,
+        diacritic_keep_probs: list = [0.2, 0.2, 0.2],  # train, val, test
     ):
         super().__init__()
         self.train_files = (
@@ -57,35 +58,37 @@ class DataManager(L.LightningDataModule):
         self.max_length = max_length
         self.val_split = val_split
         self.test_split = test_split
+        self.diacritic_keep_probs = diacritic_keep_probs
 
         self.tokenizer = CharTokenizer()
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
 
-    def collate_fn(self, batch: List[Tuple[np.ndarray, np.ndarray, int]]):
+    def collate_fn(self, batch: list[Tuple[np.ndarray, np.ndarray, np.ndarray, int]]):
         """
-        Optimized collate_fn that leverages pre-padding and dynamic batch sizing.
+        MODIFIED: This now handles the new `hints` tensor.
         """
-        # Batch is a list of (padded_input_np, padded_label_np, length) tuples
-        inputs_list, labels_list, lengths = zip(*batch)
+        # Batch is a list of (padded_input_np, padded_hint_np, padded_label_np, length) tuples
+        inputs_list, hints_list, labels_list, lengths = zip(*batch)
 
-        # Find the max sequence length *within the current batch*
         max_len_in_batch = max(lengths)
 
-        # Stack the numpy arrays into a single batch array
         inputs_np = np.stack(inputs_list, axis=0)
+        hints_np = np.stack(hints_list, axis=0)
         labels_np = np.stack(labels_list, axis=0)
 
-        # This is the crucial step that prevents sending unnecessary padding to the GPU.
         inputs_sliced = inputs_np[:, :max_len_in_batch]
+        hints_sliced = hints_np[:, :max_len_in_batch]
         labels_sliced = labels_np[:, :max_len_in_batch]
 
         inputs_tensor = torch.from_numpy(inputs_sliced).long()
+        hints_tensor = torch.from_numpy(hints_sliced).long()
         labels_tensor = torch.from_numpy(labels_sliced).long()
         lengths_tensor = torch.tensor(lengths, dtype=torch.long)
 
-        return inputs_tensor, labels_tensor, lengths_tensor
+        # Return the new hints_tensor in the batch
+        return inputs_tensor, hints_tensor, labels_tensor, lengths_tensor
 
     def setup(self, stage: Optional[str] = None):
         _LOGGER.info(f"Setting up DataManager (stage={stage})")
@@ -97,6 +100,7 @@ class DataManager(L.LightningDataModule):
                 cache_dir=self.cache_dir,
                 cache_format=self.cache_format,
                 max_length=self.max_length,
+                diacritic_keep_prob=self.diacritic_keep_probs[0],
             )
             _LOGGER.info("Applying sortish bucketing to the training set...")
 
@@ -106,13 +110,13 @@ class DataManager(L.LightningDataModule):
             lengths = [base_train_ds[i][2] for i in range(len(base_train_ds))]
 
             # Create a new sorted list of indices
-            sorted_indices = [
-                idx
-                for _, idx in sorted(zip(lengths, original_indices), key=lambda x: x[0])
-            ]
-
+            # sorted_indices = [
+            #     idx
+            #     for _, idx in sorted(zip(lengths, original_indices), key=lambda x: x[0])
+            # ]
+            #
             # Wrap the original dataset in a Subset that uses the new sorted index order
-            base_train_ds = Subset(base_train_ds, sorted_indices)
+            base_train_ds = Subset(base_train_ds, original_indices)
             _LOGGER.info("Sortish bucketing applied successfully.")
 
             if self.val_files and self.test_files:
@@ -124,6 +128,7 @@ class DataManager(L.LightningDataModule):
                     cache_dir=self.cache_dir,
                     cache_format=self.cache_format,
                     max_length=self.max_length,
+                    diacritic_keep_prob=self.diacritic_keep_probs[1],
                 )
                 self.test_dataset = DiacritizationDataset(
                     file_paths=self.test_files,
@@ -131,6 +136,7 @@ class DataManager(L.LightningDataModule):
                     cache_dir=self.cache_dir,
                     cache_format=self.cache_format,
                     max_length=self.max_length,
+                    diacritic_keep_prob=self.diacritic_keep_probs[2],
                 )
 
             # CASE 2: Only train provided
@@ -160,6 +166,7 @@ class DataManager(L.LightningDataModule):
                     cache_dir=self.cache_dir,
                     cache_format=self.cache_format,
                     max_length=self.max_length,
+                    diacritic_keep_prob=self.diacritic_keep_probs[2],
                 )
                 n_total = len(base_train_ds)
                 n_val = max(1, int(n_total * self.val_split))
@@ -182,6 +189,7 @@ class DataManager(L.LightningDataModule):
                     cache_dir=self.cache_dir,
                     cache_format=self.cache_format,
                     max_length=self.max_length,
+                    diacritic_keep_prob=self.diacritic_keep_probs[2],
                 )
                 n_total = len(base_train_ds)
                 n_val = max(1, int(n_total * self.val_split))
@@ -202,7 +210,9 @@ class DataManager(L.LightningDataModule):
                     cache_dir=self.cache_dir,
                     cache_format=self.cache_format,
                     max_length=self.max_length,
+                    diacritic_keep_prob=self.diacritic_keep_probs[2],
                 )
+
 
     def train_dataloader(self):
         return DataLoader(

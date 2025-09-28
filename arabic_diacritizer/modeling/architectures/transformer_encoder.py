@@ -59,7 +59,15 @@ class TransformerEncoderDiacritizer(nn.Module):
         super().__init__()
         self.pad_idx = pad_idx
 
-        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
+        self.char_embedding = nn.Embedding(
+            num_embeddings=vocab_size, embedding_dim=d_model, padding_idx=pad_idx
+        )
+        #  A second embedding layer for the diacritic hints.
+        # It must have the same dimensions as the character embedding.
+        self.hint_embedding = nn.Embedding(
+            num_embeddings=num_classes, embedding_dim=d_model, padding_idx=pad_idx
+        )
+
         self.d_model = d_model
 
         self.pos_encoder = PositionalEncoding(d_model, dropout)
@@ -80,7 +88,7 @@ class TransformerEncoderDiacritizer(nn.Module):
         """Creates a boolean mask for padding tokens."""
         return src == self.pad_idx
 
-    def forward(self, x: torch.Tensor, lengths=None):
+    def forward(self, x: torch.Tensor, hints: torch.Tensor, lengths=None, **kwargs):
         """
         Args:
             x: LongTensor (batch_size, seq_len) - character IDs
@@ -89,8 +97,13 @@ class TransformerEncoderDiacritizer(nn.Module):
         Returns:
             logits: FloatTensor (batch_size, seq_len, num_classes)
         """
+        char_embedded = self.char_embedding(x)
+        hint_embedded = self.hint_embedding(hints)
+
+        # Combine the embeddings. Simple addition is a powerful and effective technique.
+        embedded = char_embedded + hint_embedded
         # (B, L) to (B, L, D_MODEL)
-        embedded = self.embedding(x) * math.sqrt(self.d_model)
+        embedded = embedded * math.sqrt(self.d_model)
 
         # The nn.TransformerEncoderLayer expects (L, B, E) if batch_first=False
         # but we use batch_first=True, so input is (B, L, E).
@@ -106,7 +119,6 @@ class TransformerEncoderDiacritizer(nn.Module):
         transformer_out = self.transformer_encoder(
             transformer_input, src_key_padding_mask=padding_mask
         )
-
 
         # (B, L, D_MODEL) to (B, L, num_classes)
         logits = self.fc(transformer_out)

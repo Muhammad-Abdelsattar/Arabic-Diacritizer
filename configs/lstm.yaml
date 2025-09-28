@@ -1,14 +1,15 @@
 data:
-  train_files: ["data/processed/train.txt"]
-  val_files: ["data/processed/val.txt"]
+  train_files: ["data/processed/synthetic_regular_processed.txt"]
+  val_files: null
   test_files: null
   batch_size: 256
   num_workers: 12
   cache_dir: ".cache/"
   cache_format: "npz"
   max_length: 512
-  val_split: 0.05
+  val_split: 0.01
   test_split: 0
+  diacritic_keep_probs: [0.2, 0.0, 0.0]
 
 modeling_config:
   architecture:

@@ -38,7 +38,14 @@ class CNNBiLSTMDiacritizer(nn.Module):
         self.pad_idx = pad_idx
 
         # Embedding Layer
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
+        self.char_embedding = nn.Embedding(
+            num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=pad_idx
+        )
+        #  A second embedding layer for the diacritic hints.
+        # It must have the same dimensions as the character embedding.
+        self.hint_embedding = nn.Embedding(
+            num_embeddings=num_classes, embedding_dim=embedding_dim, padding_idx=pad_idx
+        )
 
         # Configurable CNN Block
         cnn_layers = []
@@ -54,7 +61,7 @@ class CNNBiLSTMDiacritizer(nn.Module):
                         padding="same",  # That's cirtical
                     ),
                     nn.BatchNorm1d(cnn_hidden_dim),
-                    nn.GELU(),  # Or maybe relu ?
+                    nn.GELU(),  # can also be relu
                     nn.Dropout(cnn_dropout),
                 )
             )
@@ -77,7 +84,11 @@ class CNNBiLSTMDiacritizer(nn.Module):
         self.fc = nn.Linear(lstm_hidden_dim * 2, num_classes)
 
     def forward(
-        self, x: torch.Tensor, lengths: Optional[torch.Tensor] = None
+        self,
+        x: torch.Tensor,
+        hints: torch.Tensor,
+        lengths: Optional[torch.Tensor] = None,
+        **kwargs
     ) -> torch.Tensor:
         """
         Standard forward pass that returns logits.
@@ -89,8 +100,11 @@ class CNNBiLSTMDiacritizer(nn.Module):
         Returns:
             logits: FloatTensor (batch_size, seq_len, num_classes)
         """
-        # (B, L) to (B, L, E_dim)
-        embedded = self.embedding(x)
+        char_embedded = self.char_embedding(x)
+        hint_embedded = self.hint_embedding(hints)
+
+        # Combine the embeddings. Simple addition is a powerful and effective technique.
+        embedded = char_embedded + hint_embedded
 
         # CNNs expect (B, Channels, L), so we permute the dimensions
         # (B, L, E_dim) to (B, E_dim, L)

@@ -38,6 +38,7 @@ class DiacritizationDataset(Dataset):
         cache_format: str = "pickle",
         preload: bool = False,
         max_length: Optional[int] = None,
+        diacritic_keep_prob: float = 0.2,
     ):
         if isinstance(file_paths, str):
             file_paths = [file_paths]
@@ -46,6 +47,7 @@ class DiacritizationDataset(Dataset):
         self.cache_dir = Path(cache_dir) if cache_dir else None
         self.cache_format = cache_format.lower()
         self.max_length = max_length
+        self.keep_prob = diacritic_keep_prob
 
         for path in self.file_paths:
             if not path.exists():
@@ -62,7 +64,7 @@ class DiacritizationDataset(Dataset):
         self._data = None
         self._inputs_npz = None
         self._labels_npz = None
-        self._lengths_npz = None 
+        self._lengths_npz = None
 
         if self.cache_dir and self.cache_format != "none":
             self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -140,23 +142,25 @@ class DiacritizationDataset(Dataset):
             self._lengths_npz = np.memmap(
                 lengths_file, dtype=np.int32, mode="w+", shape=(self.size,)
             )
-            
+
             for i, line in enumerate(self.lines):
                 input_ids, label_ids = self._encode_line(line)
                 L = min(len(input_ids), max_len)
-                
+
                 # Write data to the memmapped arrays
                 self._inputs_npz[i, :L] = input_ids[:L]
                 self._labels_npz[i, :L] = label_ids[:L]
-                self._lengths_npz[i] = L # <-- BEST PRACTICE: Save the true length
+                self._lengths_npz[i] = L  # <-- BEST PRACTICE: Save the true length
 
                 # Explicitly pad the rest of the sequence if necessary
                 if L < max_len:
                     self._inputs_npz[i, L:] = 0
                     self._labels_npz[i, L:] = 0
-            
-            _LOGGER.info(f"Saved NPZ cache: {inputs_file}, {labels_file}, {lengths_file}")
-            
+
+            _LOGGER.info(
+                f"Saved NPZ cache: {inputs_file}, {labels_file}, {lengths_file}"
+            )
+
             # Reopen in readonly mode
             self._inputs_npz = np.memmap(
                 inputs_file, dtype=np.int32, mode="r", shape=(self.size, max_len)
@@ -179,31 +183,44 @@ class DiacritizationDataset(Dataset):
     def __len__(self):
         return self.size
 
-    def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray, int]:
+    def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
         """
-        Optimized __getitem__ to avoid any slow conversions.
-
-        Returns a tuple of:
+        MODIFIED: This now returns a tuple of FOUR items:
         - Padded input IDs (NumPy array)
+        - PADDED HINT IDs (NumPy array) <--- NEW
         - Padded label IDs (NumPy array)
         - The true, unpadded length of the sequence (integer)
         """
         if self.cache_format == "npz" and self._inputs_npz is not None:
-            # OPTIMIZED: Direct read from memmap files. This is extremely fast.
             inputs = self._inputs_npz[idx]
             labels = self._labels_npz[idx]
-            length = self._lengths_npz[idx].item() # .item() gets the Python int
-            return inputs, labels, length
+            length = self._lengths_npz[idx].item()
+        else:  # Fallback for pickle cache or on-the-fly
+            # This path is slower and requires converting to numpy
+            if self.cache_format == "pickle" and self._data is not None:
+                input_ids, label_ids = self._data[idx]
+            elif self._data is not None:
+                input_ids, label_ids = self._data[idx]
+            else:
+                input_ids, label_ids = self._encode_line(self.lines[idx])
 
-        if self.cache_format == "pickle" and self._data is not None:
-            # Fallback for pickle cache
-            input_ids, label_ids = self._data[idx]
-            return np.array(input_ids), np.array(label_ids), len(input_ids)
+            length = len(input_ids)
+            # Create numpy arrays for consistency
+            inputs = np.array(input_ids)
+            labels = np.array(label_ids)
 
-        if self._data is not None:  # In-memory preload without cache
-            input_ids, label_ids = self._data[idx]
-            return np.array(input_ids), np.array(label_ids), len(input_ids)
-        
-        # SLOWEST PATH: On-the-fly tokenization (no cache used)
-        input_ids, label_ids = self._encode_line(self.lines[idx])
-        return np.array(input_ids), np.array(label_ids), len(input_ids)
+        # Generate diacritic hints
+        # Get the ID for the "mask" token, which is "NO_DIACRITIC".
+        no_diacritic_id = self.tokenizer.diacritic2id.get("", 0)
+
+        # Set the probability of KEEPING a diacritic (a tunable hyperparameter)
+        keep_prob = self.keep_prob
+
+        # Create a random mask.
+        mask = np.random.binomial(1, keep_prob, size=labels.shape)
+
+        # Create the hints tensor by masking the true labels.
+        hint_ids = np.copy(labels)
+        hint_ids[mask == 0] = no_diacritic_id
+
+        return inputs, hint_ids, labels, length

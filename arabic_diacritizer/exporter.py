@@ -45,7 +45,7 @@ def export_for_inference(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    model.eval()  # Ensure model is in evaluation mode
+    model = model.eval()  # Ensure model is in evaluation mode
 
     if not isinstance(tokenizer, CharTokenizer):
         raise TypeError(
@@ -54,9 +54,21 @@ def export_for_inference(
 
     _LOGGER.info("Successfully received model and tokenizer.")
 
+    if input_names is None:
+        input_names = ["input_chars", "input_hints"]
+    if output_names is None:
+        output_names = ["output"]
+    if dynamic_axes is None:
+        dynamic_axes = {
+            "input_chars": {1: "sequence_length"},
+            "input_hints": {1: "sequence_length"},
+            "output": {1: "sequence_length"},
+        }
+
     # Export the core model to ONNX with dynamic axes
     _export_core_model_to_onnx(
         model=model,
+        tokenizer=tokenizer,
         output_path=output_path,
         dummy_input_length=dummy_input_length,
         opset_version=onnx_opset_version,
@@ -65,7 +77,6 @@ def export_for_inference(
         output_names=output_names,
         dynamic_axes=dynamic_axes,
     )
-
     # Save the tokenizer vocabulary
     _save_vocabularies(tokenizer, output_path)
 
@@ -74,6 +85,7 @@ def export_for_inference(
 
 def _export_core_model_to_onnx(
     model: nn.Module,
+    tokenizer: CharTokenizer,
     output_path: Path,
     dummy_input_length: int,
     opset_version: int,
@@ -86,22 +98,18 @@ def _export_core_model_to_onnx(
     onnx_path = output_path / "model.onnx"
     # Create dummy input. Using a device-agnostic tensor if possible, but
     # for tracing, it's often run on CPU.
-    dummy_input = torch.randint(
+    dummy_chars = torch.randint(
         low=0, high=40, size=(1, dummy_input_length), dtype=torch.long
     )
 
-    _LOGGER.info(f"> Exporting model to ONNX format at {onnx_path}...")
+    no_diacritic_id = tokenizer.diacritic2id.get("", 0)
 
-    # Default dynamic axes if not provided
-    if dynamic_axes is None:
-        dynamic_axes = {
-            "input": {0: "batch_size", 1: "sequence_length"},
-            "output": {0: "batch_size", 1: "sequence_length"},
-        }
-    if input_names is None:
-        input_names = ["input"]
-    if output_names is None:
-        output_names = ["output"]
+    dummy_hints = torch.full(
+        size=(1, dummy_input_length), fill_value=no_diacritic_id, dtype=torch.long
+    )
+    dummy_input = (dummy_chars, dummy_hints)
+
+    _LOGGER.info(f"> Exporting model to ONNX format at {onnx_path}...")
 
     torch.onnx.export(
         model,

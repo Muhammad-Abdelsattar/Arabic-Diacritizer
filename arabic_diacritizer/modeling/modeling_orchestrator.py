@@ -1,6 +1,7 @@
 import math
 from typing import Optional, Dict, Any
 import lightning as L
+from arabic_diacritizer_common import CharTokenizer
 from .optimizers import get_optimizer
 from ..metrics import MetricsManager
 
@@ -57,8 +58,8 @@ class ModelingOrchestrator(L.LightningModule):
                 "[INFO] Hook `on_load_checkpoint`: Removed optimizer and scheduler states from the checkpoint."
             )
 
-    def _forward_logits(self, inputs, lengths=None):
-        return self.model(inputs, lengths)
+    def _forward_logits(self, inputs, hints=None, lengths=None):
+        return self.model(x=inputs, hints=hints, lengths=lengths)
 
     def _compute_loss(self, logits, labels):
         return self.loss_fn(logits.view(-1, logits.size(-1)), labels.view(-1))
@@ -69,8 +70,8 @@ class ModelingOrchestrator(L.LightningModule):
         metrics.update(logits, labels)
 
     def training_step(self, batch, batch_idx):
-        inputs, labels, lengths = batch
-        logits = self._forward_logits(inputs, lengths)
+        inputs, hints, labels, lengths = batch
+        logits = self._forward_logits(inputs=inputs, hints=hints, lengths=lengths)
         loss = self._compute_loss(logits, labels)
 
         # Update training metrics if they exist
@@ -83,8 +84,8 @@ class ModelingOrchestrator(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, labels, lengths = batch
-        logits = self._forward_logits(inputs, lengths)
+        inputs, hints, labels, lengths = batch
+        logits = self._forward_logits(inputs=inputs, hints=hints, lengths=lengths)
         loss = self._compute_loss(logits, labels)
 
         # Update validation metrics if they exist
@@ -96,8 +97,8 @@ class ModelingOrchestrator(L.LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
-        inputs, labels, lengths = batch
-        logits = self._forward_logits(inputs, lengths)
+        inputs, hints, labels, lengths = batch
+        logits = self._forward_logits(inputs=inputs, hints=hints, lengths=lengths)
         loss = self._compute_loss(logits, labels)
 
         # Update test metrics if they exist

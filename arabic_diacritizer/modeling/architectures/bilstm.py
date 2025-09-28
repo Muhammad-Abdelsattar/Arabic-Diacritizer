@@ -7,10 +7,11 @@ from ..model_factory import register_model
 @register_model("bilstm")
 class BiLSTMDiacritizer(nn.Module):
     """
-    BiLSTM architecture for character-level Arabic diacritization.
+    A BiLSTM architecture that accepts an additional "diacritic hint" input.
 
-    - Input: character IDs (LongTensor, shape: [batch, seq_len])
-    - Output: logits for diacritic classes (FloatTensor, shape: [batch, seq_len, num_classes])
+    - Input 1: character IDs (LongTensor)
+    - Input 2: hint diacritic IDs (LongTensor)
+    - Output: logits for diacritic classes (FloatTensor)
     """
 
     def __init__(
@@ -26,12 +27,19 @@ class BiLSTMDiacritizer(nn.Module):
     ):
         super().__init__()
 
-        # Embedding for characters
-        self.embedding = nn.Embedding(
+        #  Standard embedding for characters
+        self.char_embedding = nn.Embedding(
             num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=pad_idx
         )
 
-        # BiLSTM Encoder
+        #  A second embedding layer for the diacritic hints.
+        # It must have the same dimensions as the character embedding.
+        self.hint_embedding = nn.Embedding(
+            num_embeddings=num_classes, embedding_dim=embedding_dim, padding_idx=pad_idx
+        )
+
+        # The BiLSTM now processes the combined information.
+        # Since we are adding the embeddings, the input_size remains embedding_dim.
         self.bilstm = nn.LSTM(
             input_size=embedding_dim,
             hidden_size=hidden_dim,
@@ -41,26 +49,21 @@ class BiLSTMDiacritizer(nn.Module):
             batch_first=True,
         )
 
-        # Dropout on LSTM outputs
         self.dropout = nn.Dropout(dropout)
-
-        # Final projection to diacritic classes
         self.fc = nn.Linear(hidden_dim * 2, num_classes)
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, hints, lengths=None):
         """
-        Args:
-            x: LongTensor (batch_size, seq_len) - character IDs
-            lengths: Optional LongTensor (batch_size,) - actual sequence lengths
-
-        Returns:
-            logits: FloatTensor (batch_size, seq_len, num_classes)
+        The forward pass now accepts `x` (characters) and `hints`.
         """
         # (B, L, E)
-        embedded = self.embedding(x)
+        char_embedded = self.char_embedding(x)
+        hint_embedded = self.hint_embedding(hints)
+
+        # Combine the embeddings. Simple addition is a powerful and effective technique.
+        embedded = char_embedded + hint_embedded
 
         if lengths is not None:
-            # Sort by length for packing (required by PyTorch LSTM)
             lengths_sorted, idx_sort = torch.sort(lengths, descending=True)
             embedded = embedded.index_select(0, idx_sort)
 
@@ -70,15 +73,11 @@ class BiLSTMDiacritizer(nn.Module):
             packed_out, _ = self.bilstm(packed)
             lstm_out, _ = nn.utils.rnn.pad_packed_sequence(packed_out, batch_first=True)
 
-            # Restore to original order
             _, idx_unsort = torch.sort(idx_sort)
             lstm_out = lstm_out.index_select(0, idx_unsort)
-
         else:
             lstm_out, _ = self.bilstm(embedded)
 
         dropped = self.dropout(lstm_out)
-
-        # (B, L, num_classes)
         logits = self.fc(dropped)
         return logits
