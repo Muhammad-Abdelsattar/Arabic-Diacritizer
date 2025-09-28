@@ -64,6 +64,8 @@ class TransformerEncoderDiacritizer(nn.Module):
 
         self.pos_encoder = PositionalEncoding(d_model, dropout)
 
+        self.input_dropout = nn.Dropout(dropout)
+
         encoder_layer = nn.TransformerEncoderLayer(
             d_model, nhead, dim_feedforward, dropout, batch_first=True, norm_first=True
         )
@@ -87,7 +89,7 @@ class TransformerEncoderDiacritizer(nn.Module):
         Returns:
             logits: FloatTensor (batch_size, seq_len, num_classes)
         """
-        # (B, L) -> (B, L, D_MODEL)
+        # (B, L) to (B, L, D_MODEL)
         embedded = self.embedding(x) * math.sqrt(self.d_model)
 
         # The nn.TransformerEncoderLayer expects (L, B, E) if batch_first=False
@@ -95,14 +97,17 @@ class TransformerEncoderDiacritizer(nn.Module):
         # We add positional encoding after embedding.
         pos_encoded = self.pos_encoder(embedded.permute(1, 0, 2)).permute(1, 0, 2)
 
+        transformer_input = self.input_dropout(pos_encoded)
+
         # Create padding mask: (B, L)
         padding_mask = self._generate_padding_mask(x)
 
         # Pass through transformer encoder
         transformer_out = self.transformer_encoder(
-            pos_encoded, src_key_padding_mask=padding_mask
+            transformer_input, src_key_padding_mask=padding_mask
         )
 
-        # (B, L, D_MODEL) -> (B, L, num_classes)
+
+        # (B, L, D_MODEL) to (B, L, num_classes)
         logits = self.fc(transformer_out)
         return logits

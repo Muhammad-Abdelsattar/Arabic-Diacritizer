@@ -20,10 +20,10 @@ modeling_config:
 
   optimizer:
     name: "adamw"
-    lr: 1e-4
+    lr: 5e-5
     weight_decay: 0.01
     betas: [0.9, 0.98]
 
   scheduler: 
-    name: "linear_warmup"
-    warmup_ratio: 0.1
+    name: "cosine"
+    t_max: 50
