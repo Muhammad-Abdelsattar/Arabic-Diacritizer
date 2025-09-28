@@ -117,7 +117,7 @@ The repository is organized into several key packages to maintain a clean separa
 
 ---
 
-### acknowledgements
+### Acknowledgements
 
 This project's architecture and training methodologies have been greatly inspired by the work of the open-source Arabic NLP community.
 
