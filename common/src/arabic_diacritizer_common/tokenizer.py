@@ -69,10 +69,25 @@ class CharTokenizer:
         """
         Encode a diacritized string → (input_ids, diacritic_labels)
         """
-        clean_text = TextCleaner.clean_text(text, keep_valid_only=True)
-        base_text, diacritics = DiacriticValidator.extract_diacritics(clean_text)
+        # clean_text = TextCleaner.clean_text(text, keep_valid_only=True)
+        base_text, diacritics = DiacriticValidator.extract_diacritics(text)
 
-        input_ids = [self.char2id.get(ch, self.char2id["<UNK>"]) for ch in base_text]
+        input_ids = [self.char2id.get(ch, self.char2id["<PAD>"]) for ch in base_text]
+        label_ids = [
+            self.diacritic2id.get(
+                d, self.diacritic2id[ArabicDiacritics.NO_DIACRITIC.value]
+            )
+            for d in diacritics
+        ]
+        return input_ids, label_ids
+
+    def encode_for_inference(self, text: str) -> Tuple[List[int], List[int]]:
+        """
+        Encode a diacritized string → (input_ids, diacritic_labels)
+        """
+        # clean_text = TextCleaner.clean_text(text, keep_valid_only=True)
+
+        input_ids = [self.char2id.get(ch, self.char2id["<PAD>"]) for ch in base_text]
         label_ids = [
             self.diacritic2id.get(
                 d, self.diacritic2id[ArabicDiacritics.NO_DIACRITIC.value]
@@ -117,4 +132,38 @@ class CharTokenizer:
                     char
                 )  # Append the character without the predicted diacritic
 
+        return "".join(cleaned_output)
+
+    def decode_inference(
+        self,
+        text_list: list,
+        label_ids: list,
+        cleanup_mode: str = "clean",
+    ):
+        """
+        Decode (input_ids, label_ids) -> string with diacritics.
+
+        Args:
+            text_list: List of chars in the original text without diacritics.
+            label_ids: List of predicted diacritic IDs.
+            cleanup_mode (str): Determines the post-processing strategy.
+                - "clean": (Default) Removes diacritics from non-Arabic letters (e.g., punctuation, spaces).
+                - "raw": Returns the raw model output without any cleanup.
+
+        Returns:
+            The reconstructed, diacritized string.
+        """
+        if cleanup_mode not in {"clean", "raw"}:
+            raise ValueError("cleanup_mode must be either 'clean' or 'raw'.")
+
+        diacs = [self.id2diacritic.get(i, "") for i in label_ids]
+        cleaned_output = []
+        for char, diac in zip(text_list, diacs):
+            # Only attach a diacritic if the character is a valid Arabic letter
+            if char in ARABIC_LETTERS:
+                cleaned_output.append(str(char) + str(diac))
+            else:
+                cleaned_output.append(
+                    char
+                )  # Append the character without the predicted diacritic
         return "".join(cleaned_output)

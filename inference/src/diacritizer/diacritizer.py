@@ -60,37 +60,37 @@ class Diacritizer:
         )
         self.segmenter = TextSegmenter()
 
-    def _diacritize_batch(self, arabic_texts: List[str]) -> List[str]:
-        """Helper to diacritize a batch of clean, undiacritized Arabic strings."""
-        if not arabic_texts:
-            return []
+    def _diacritize_sentence(self, text: str) -> str:
+        """Helper to diacritize an arabic sentence string."""
+        if not text.strip():
+            return ""
 
-        # Tokenize all text parts
-        all_input_ids = [self.tokenizer.encode(text)[0] for text in arabic_texts]
+        input_ids, diacritic_ids = self.tokenizer.encode(text)
 
-        # Pad the batch to the length of the longest sequence
-        max_len = max(len(ids) for ids in all_input_ids)
-        padded_input_ids = np.zeros((len(all_input_ids), max_len), dtype=np.int64)
-        for i, ids in enumerate(all_input_ids):
-            padded_input_ids[i, : len(ids)] = ids
 
+        text_list = list(TextCleaner.remove_diacritics(text))
+
+        original_len = len(input_ids)
+        if original_len == 0:
+            return ""
+
+        input_chars = np.array(input_ids).astype(np.int64).reshape(1, -1)
+        no_diacritic_id = self.tokenizer.diacritic2id.get("", 0)
+        input_hints = np.full_like(
+            input_chars, fill_value=no_diacritic_id, dtype=np.int64
+        )
         # inference
-        logits = self.predictor.predict(padded_input_ids)
+        logits = self.predictor.predict(input_ids=input_chars, hints=input_hints)
         predicted_diac_ids = np.argmax(logits, axis=-1)
 
         # Decode the predictions
-        diacritized_texts = []
-        for i in range(len(all_input_ids)):
-            # Decode only the original, unpadded length
-            length = len(all_input_ids[i])
-            decoded_text = self.tokenizer.decode(
-                all_input_ids[i], predicted_diac_ids[i, :length].tolist()
-            )
-            diacritized_texts.append(decoded_text)
+        return self.tokenizer.decode_inference(
+            text_list, predicted_diac_ids[0].tolist()
+        )
 
-        return diacritized_texts
-
-    def diacritize(self, text: str, postprocess: bool = True) -> str:
+    def diacritize(
+        self, text: Union[str, List[str]], postprocess: bool = True
+    ) -> List[str]:
         """
         Diacritizes text while preserving non-Arabic characters and structure.
 
@@ -110,30 +110,24 @@ class Diacritizer:
         if not text:
             return ""
 
-        # Remove all diacritics from the text
-        text = TextCleaner.remove_diacritics(text)
-        # Dissect the text into Arabic and non-Arabic segments.
-        segments = ARABIC_LETTERS_REGEX.split(text)
-        arabic_words = ARABIC_LETTERS_REGEX.findall(text)
+        if isinstance(text, str):
+            # To handle a single string input gracefully
+            text_or_list = [text]
 
-        words_for_model = [TextCleaner.strip_diacritics(word) for word in arabic_words]
-
-        # Run inference on the cleaned Arabic words.
-        # The model is called only once with a batch of all Arabic words.
-        if words_for_model:
-            diacritized_words = self._diacritize_batch(words_for_model)
         else:
-            diacritized_words = []
+            # To handle a list of strings input gracefully
+            text_or_list = text
 
-        # We interleave the original non-Arabic segments with the newly
-        # diacritized Arabic words.
-        result = []
-        for i, segment in enumerate(segments):
-            result.append(segment)
-            if i < len(diacritized_words):
-                result.append(diacritized_words[i])
+        if not isinstance(text_or_list, list):
+            raise TypeError("Input must be a string or a list of strings.")
+
+        diacritized_list = [self._diacritize_sentence(s) for s in text_or_list]
 
         if postprocess:
-            result = Postprocessor.postprocess("".join(result))
+            for i, diacritized_sentence in enumerate(diacritized_list):
+                diacritized_list[i] = Postprocessor.postprocess(diacritized_sentence)
 
-        return result
+        if isinstance(text, str):
+            return diacritized_list[0]
+
+        return diacritized_list
