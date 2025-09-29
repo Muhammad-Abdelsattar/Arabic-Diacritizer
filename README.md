@@ -94,11 +94,15 @@ This README provides a high-level overview. For detailed instructions, please re
 
 > **Looking to use the model in your application?**
 >
-> See the **[➡️ Inference Guide](./docs/inference.md)** for installation and detailed usage instructions.
+> See the **[➡️Inference Guide](./docs/inference.md)** for installation and detailed usage instructions using the lightweight inference library.
+
+> **Want to see performance numbers and comparisons?**
+>
+> See the **[➡️Benchmarks & Performance](./docs/benchmarks.md)** page for DER/WER scores, model sizes, and SOTA comparisons.
 
 > **Want to train, fine-tune, or export your own model?**
 >
-> See the **[➡️ Training & Development Guide](./docs/training.md)** for a complete walkthrough of the data preparation, configuration, training, and export process.
+> See the **[➡️Training & Development Guide](./docs/training.md)** for a complete walkthrough of the data preparation, configuration, training, and export process.
 
 ---
 
@@ -121,7 +125,9 @@ The repository is organized into several key packages to maintain a clean separa
 
 This project's architecture and training methodologies have been greatly inspired by the work of the open-source Arabic NLP community.
 
-A special acknowledgement and thanks goes to the **[Hareef](https://github.com/mush42/hareef)** repository. Studying its `hareef/sarf` model was an invaluable learning experience. Specifically, the innovative idea of training with partially diacritized inputs (what we call a "hint-based" mechanism) was a direct inspiration for some of the advanced models in this project. This technique has proven to be highly effective for improving the model's robustness and contextual understanding.
+> A special acknowledgement and thanks goes to the **[Hareef](https://github.com/mush42/hareef)** repository. Studying its `hareef/sarf` model was an invaluable learning experience. Specifically, the innovative idea of training with partially diacritized inputs (what we call a "hint-based" mechanism) was a direct inspiration for some of the advanced models in this project. This technique has proven to be highly effective for improving the model's robustness and contextual understanding.
+
+> The [Sadeed Benchmark](https://huggingface.co/datasets/Misraj/SadeedDiac-25) for the evaluation benchmark.
 
 ---
 
