@@ -217,10 +217,15 @@ class DiacritizationDataset(Dataset):
         keep_prob = self.keep_prob
 
         # Create a random mask.
-        mask = np.random.binomial(1, keep_prob, size=labels.shape)
+        if self.keep_prob == 0:
+            hint_ids = np.full_like(labels, fill_value=no_diacritic_id)
+        else:
+            # Otherwise, use the original probabilistic masking logic.
+            keep_prob = self.keep_prob
+            mask = np.random.binomial(1, keep_prob, size=labels.shape)
+            hint_ids = np.copy(labels)
+            hint_ids[mask == 0] = no_diacritic_id
 
         # Create the hints tensor by masking the true labels.
-        hint_ids = np.copy(labels)
-        hint_ids[mask == 0] = no_diacritic_id
 
         return inputs, hint_ids, labels, length
