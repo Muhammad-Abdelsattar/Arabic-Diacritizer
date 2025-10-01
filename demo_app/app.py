@@ -6,6 +6,10 @@ MODEL_INFO = {
     "bilstm": {
         "display_name": "BiLSTM",
         "models": {
+            "small": {
+                "size": "1.5 MB",
+                "details": "Fastest model.",
+            },
             "medium": {
                 "size": "4 MB",
                 "details": "Balanced speed and accuracy.",
@@ -19,12 +23,16 @@ MODEL_INFO = {
     "bigru": {
         "display_name": "BiGRU",
         "models": {
+            "small": {
+                "size": "1.15 MB",
+                "details": "Fastest model.",
+            },
             "medium": {
-                "size": "3.8 MB",
+                "size": "3.2 MB",
                 "details": "Slightly faster than BiLSTM with comparable accuracy.",
             },
             "large": {
-                "size": "14.9 MB",
+                "size": "12.4 MB",
                 "details": "High accuracy alternative to the BiLSTM model.",
             },
         },
@@ -121,7 +129,7 @@ with gr.Blocks(theme=theme, css=".footer {display: none !important}") as demo:
                     info="Select the model architecture.",
                 )
                 model_selector = gr.Radio(
-                    choices=["medium", "large"],
+                    choices=[,"small", "medium", "large"],
                     label="Model Size",
                     value="medium",
                     info="Select the model size.",
