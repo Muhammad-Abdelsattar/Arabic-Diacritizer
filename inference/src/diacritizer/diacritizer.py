@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Optional
 import numpy as np
 from arabic_diacritizer_common import (
     CharTokenizer,
@@ -18,7 +18,8 @@ from .hub_manager import resolve_model_path, DEFAULT_HUB_REPO_ID
 class Diacritizer:
     def __init__(
         self,
-        model_identifier: str = None,
+        model_identifier: Optional[str] = None,
+        architecture: str = "bilstm",
         size: str = "medium",
         revision: str = "main",
         force_sync: bool = False,
@@ -27,25 +28,24 @@ class Diacritizer:
         """
         Initializes the Diacritizer by loading the model and tokenizer.
 
-        The model can be loaded from a local directory or downloaded automatically
-        from the Hugging Face Hub.
-
         Args:
-            model_identifier (str, optional): The identifier for the model.
-                - Can be a path to a local directory.
-                - Can be a repository ID on the Hugging Face Hub (e.g., "your-name/your-repo").
-                If None, defaults to the official pre-trained model repository.
-            size (str): The model size ('small', 'medium', 'large'). Defaults to "medium".
-            revision (str): A specific model version from the Hub (tag, branch, or commit). Defaults to "main".
-            force_sync (bool): If True, forces a re-download from the Hub. Defaults to False.
-            use_gpu (bool): If True, attempts to use CUDA for inference. Defaults to False.
+            model_identifier (str, optional): The identifier for the model. Can be a
+                local path or a Hugging Face Hub repo ID. Defaults to the official repo.
+            architecture (str): The model architecture ('bilstm', 'bigru', etc.).
+                Defaults to "bilstm".
+            size (str): The model size ('small', 'medium'). Defaults to "medium".
+            revision (str): A specific model version from the Hub. Defaults to "main".
+            force_sync (bool): If True, forces a re-download. Defaults to False.
+            use_gpu (bool): If True, attempts to use CUDA. Defaults to False.
         """
         self.max_length = -1
 
         repo_to_resolve = model_identifier or DEFAULT_HUB_REPO_ID
 
+        # Pass the new 'architecture' parameter to the resolver function
         onnx_path, vocab_path = resolve_model_path(
             model_identifier=repo_to_resolve,
+            architecture=architecture,  # MODIFIED
             size=size,
             revision=revision,
             force_sync=force_sync,
@@ -66,7 +66,6 @@ class Diacritizer:
             return ""
 
         input_ids, diacritic_ids = self.tokenizer.encode(text)
-
 
         text_list = list(TextCleaner.remove_diacritics(text))
 
