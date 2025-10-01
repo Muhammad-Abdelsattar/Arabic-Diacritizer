@@ -27,6 +27,7 @@ def export(
     # Extract the core components needed for export
     core_model = lightning_module.model
     tokenizer = lightning_module.tokenizer
+    config = lightning_module.hparams.config
 
     # The export parameters are also loaded from the config inside the checkpoint
     try:
@@ -41,7 +42,7 @@ def export(
     output_dir = export_params.get("output_dir", "artifacts/")
     typer.echo(f"Exporting model to: {output_dir}")
 
-    export_for_inference(model=core_model, tokenizer=tokenizer, **export_params)
+    export_for_inference(model=core_model, tokenizer=tokenizer, config=config, **export_params)
 
     typer.secho("Export complete.", fg=typer.colors.GREEN)
 

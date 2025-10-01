@@ -14,6 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 def export_for_inference(
     model: nn.Module,
     tokenizer: CharTokenizer,
+    config: Dict[str, Any],
     output_dir: str,
     dummy_input_length: int = 10,
     onnx_opset_version: int = 12,
@@ -79,6 +80,7 @@ def export_for_inference(
     )
     # Save the tokenizer vocabulary
     _save_vocabularies(tokenizer, output_path)
+    _save_config(config, output_path)
 
     _LOGGER.info(f"> Export successful. Bundle saved to: {output_path.resolve()}")
 
@@ -122,6 +124,13 @@ def _export_core_model_to_onnx(
         opset_version=opset_version,
     )
     _LOGGER.info("ONNX export completed with dynamic axes.")
+
+
+def _save_config(config: Dict[str, Any], output_path: Path):
+    """Exports the config to a JSON file."""
+    with open(output_path / "config.json", "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+    _LOGGER.info(f"> Export successful. Config saved to: {output_path.resolve()}")
 
 
 def _save_vocabularies(tokenizer: CharTokenizer, output_path: Path):

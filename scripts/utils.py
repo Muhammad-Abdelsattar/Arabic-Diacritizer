@@ -1,5 +1,6 @@
 import subprocess
 import os
+from datetime import datetime
 import sys
 from typing import List, Optional, Dict, Any
 
@@ -163,9 +164,14 @@ def load_config(
         )
 
         if wandb_config and not wandb_config.get("name") and git_branch:
-            wandb_config["name"] = git_branch
+            # NEW: Generate a clean timestamp string
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            # NEW: Create the combined name
+            run_name = f"{git_branch}_{timestamp}"
+            # UPDATED: Assign the new combined name
+            wandb_config["name"] = run_name
             typer.secho(
-                f"\t | > W&B run name automatically set to Git branch: '{git_branch}'",
+                f"\t | > W&B run name automatically set to: '{run_name}'", 
                 fg=typer.colors.CYAN,
             )
 
