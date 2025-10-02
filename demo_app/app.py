@@ -129,7 +129,7 @@ with gr.Blocks(theme=theme, css=".footer {display: none !important}") as demo:
                     info="Select the model architecture.",
                 )
                 model_selector = gr.Radio(
-                    choices=[,"small", "medium", "large"],
+                    choices=["small", "medium", "large"],
                     label="Model Size",
                     value="medium",
                     info="Select the model size.",

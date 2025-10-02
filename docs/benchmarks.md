@@ -27,10 +27,14 @@ Also, the models are evaluated on the test set of the [Arabic Diacritizer Evalua
 
 These are the official models available for automatic download via the `inference` package. They are optimized for ONNX Runtime.
 
-| Model Size | Architecture    | DER (%) (Sadeed Benchmark) | ONNX Size (MB)         | Speed (CPU) |
-| :--------- | :-------------- | :------------------------- | :--------------------- | :---------- |
-| **Small**  | BiLSTM w/ hints | 3.05%                      | 4 MB (1 M params)      | **Fastest** |
-| **Medium** | BiLSTM w/ Hints | 2.54%                      | 15.5 MB (3.9 M params) | Fast        |
+| Model Size | Architecture    | DER (%) (Sadeed Benchmark) | ONNX Size (MB)          | Speed (CPU) |
+| :--------- | :-------------- | :------------------------- | :---------------------- | :---------- |
+| **Small**  | BiLSTM w/ hints | 4.09%                      | 1.45 MB (360 k params)  | **Fastest** |
+| **Medium** | BiLSTM w/ hints | 3.05%                      | 4 MB (1 M params)       | **Faster**  |
+| **Large**  | BiLSTM w/ Hints | 2.54%                      | 15.5 MB (3.9 M params)  | Fast        |
+| **Small**  | BiGRU w/ hints  | 4.42%                      | 1.15 MB (295 k params)  | **Fastest** |
+| **Medium** | BiLSTM w/ hints | 3.29%                      | 3.08 MB (790 k params)  | **Faster**  |
+| **Large**  | BiLSTM w/ Hints | 2.84%                      | 12.1 MB (3.05 M params) | Fast        |
 
 > Note: These values are based on the SadeedDiac-25 benchmark.
 
@@ -50,8 +54,8 @@ Here is how our models compare to models from the `AliOsm/arabic-text-diacritiza
 
 | System                 | DER (%)   |
 | :--------------------- | :-------- |
-| **This Repo (Medium)** | **1.23%** |
-| **This Repo (small)**  | **1.52%** |
+| **This Repo (Large) BiLSTM** | **1.23%** |
+| **This Repo (Meduim) BiLSTM**  | **1.52%** |
 | shakkala               | 4.36%     |
 | mishkal                | 17.59%    |
 | farasa                 | 24.9%     |
@@ -65,8 +69,8 @@ Here is how our models compare to LLMs from the SadeedDiac-25 benchmark.
 
 | System                   | DER (%) |
 | :----------------------- | :------ |
-| **This Repo (Medium)**   | 2.54%   |
-| **This Repo (small)**    | 3.05%   |
+| **This Repo BiLSTM (Large)**   | 2.54%   |
+| **This Repo BiLSTM (meduim)**    | 3.05%   |
 | Claude-3-7-Sonnet-Latest | ~1.39%  |
 | GPT-4                    | ~3.86%  |
 | Gemini-Flash-2.0         | ~3.19%  |

@@ -43,7 +43,7 @@ from diacritizer import Diacritizer
 
 # The first time you run this, it will download the model.
 # Subsequent runs will be instant as it uses the local cache.
-diacritizer = Diacritizer()
+diacritizer_bilstm = Diacritizer(architecture="bilstm", size="medium")
 
 diacritized_text = diacritizer.diacritize("مرحبا بالعالم")
 print(diacritized_text)
@@ -55,10 +55,10 @@ If you need a different balance of speed and accuracy, you can request a specifi
 
 ```python
 # Request the 'small' model for maximum speed
-diacritizer_small = Diacritizer(size="small")
+diacritizer_small = Diacritizer(architecture="bilstm", size="small")
 
 # Request the 'large' model for the highest accuracy
-diacritizer_large = Diacritizer(size="large")
+diacritizer_large = Diacritizer(architecture="bigru", size="large")
 ```
 
 ## 3. Advanced Usage
@@ -83,7 +83,7 @@ For production systems or scientific research, it's critical to pin your code to
 
 ```python
 # It guarantees that your results are reproducible, even if the 'main' branch is updated.
-diacritizer_v1_2 = Diacritizer(size="medium", revision="v1.2")
+diacritizer_v1_2 = Diacritizer(architecture="bilstm", size="medium", revision="v1.2")
 ```
 
 ### Force-Syncing to the Latest Version
@@ -102,7 +102,7 @@ For the best performance, you can run inference on a GPU. You must first install
 
 ```python
 # The use_gpu flag tells the predictor to use the CUDA execution provider.
-gpu_diacritizer = Diacritizer(size="medium", use_gpu=True)
+gpu_diacritizer = Diacritizer(architecture="bilstm", size="medium", use_gpu=True)
 ```
 
 ## 4. How it Works: Caching

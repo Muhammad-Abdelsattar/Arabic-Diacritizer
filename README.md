@@ -18,7 +18,8 @@ We achieve this by focusing on efficient architectures (like small BiLSTMs and c
 
 ### 🚀 Key Features
 
-- **Hugging Face Hub Integration:** Get started instantly. The inference package automatically downloads and caches pre-trained models (`small`, `medium`, `large`) for you.
+- **Live Gradio Demo:** Try the model instantly in your browser via our [**Hugging Face Space**](https://huggingface.co/spaces/Muhammad7777/Arabic-Diacritizer).
+- **Hugging Face Hub Integration:** Get started instantly. The inference package automatically downloads and caches pre-trained models by architecture (`bilstm`, `bigru`) and size (`snall`, `medium`, `large`).
 - **Complete CLI Workflow:** Manage the entire lifecycle from the command line:
     1.  `preprocess`: Clean and segment raw text corpora.
     2.  `train`: Train, fine-tune, or resume runs with a single command.
@@ -58,7 +59,7 @@ from diacritizer import Diacritizer
 # 1. Initialize the diacritizer. The default 'medium' model will be
 #    downloaded from the Hugging Face Hub and cached locally.
 #    Subsequent initializations will be instant.
-diacritizer = Diacritizer()
+diacritizer = Diacritizer(architecture="bilstm", size="medium")
 
 # 2. Diacritize your text
 text = "مرحبا بالعالم"
@@ -112,11 +113,13 @@ The repository is organized into several key packages to maintain a clean separa
 
 ```
 ├── docs/                 # Detailed documentation guides
+├── demo_app/             # Source code for the live Gradio demo
 ├── arabic_diacritizer/   # The core training library (data loaders, models, trainer)
 ├── common/               # Shared text processing utilities (tokenizer, cleaners)
 ├── configs/              # YAML configuration files for experiments
 ├── inference/            # The lightweight, PyTorch-free inference package
-└── scripts/              # The command-line interface (CLI) entry points
+├── scripts/              # The command-line interface (CLI) entry points
+└── deploy_space.sh       # Automation script to deploy the Gradio demo to HF Spaces
 ```
 
 ---
